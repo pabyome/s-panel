@@ -1,0 +1,36 @@
+# General
+.DS_Store
+.idea/
+.vscode/
+*.log
+*.sqlite
+*.sqlite3
+*.db
+
+# Backend (Python/FastAPI)
+backend/__pycache__/
+backend/*.py[cod]
+backend/.venv/
+backend/venv/
+backend/.env
+backend/.env.*
+backend/.pytest_cache/
+backend/coverage.xml
+backend/htmlcov/
+backend/spanel.service
+backend/.python-version
+
+# Frontend (Vue/Node)
+frontend/node_modules/
+frontend/dist/
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/pnpm-debug.log*
+frontend/.env.local
+frontend/.env.*.local
+frontend/playwright-report/
+frontend/test-results/
+
+# Agent/System
+.gemini/

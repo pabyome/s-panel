@@ -1,0 +1,77 @@
+from fastapi.testclient import TestClient
+from unittest.mock import patch, MagicMock, mock_open
+from main import app
+from app.services.redis_manager import RedisManager
+
+client = TestClient(app)
+
+# Mock Redis Client
+@patch("app.services.redis_manager.redis.Redis")
+def test_get_info(mock_redis):
+    # Setup mock
+    mock_instance = MagicMock()
+    mock_instance.info.return_value = {"redis_version": "7.0.0", "uptime_in_seconds": 3600}
+    mock_redis.return_value = mock_instance
+
+    # We need to reset the singleton for test isolation or mock get_client
+    RedisManager._client = None
+
+    response = client.get("/api/v1/redis/info")
+    assert response.status_code == 200
+    assert response.json()["redis_version"] == "7.0.0"
+
+@patch("app.services.redis_manager.RedisManager.get_config_path")
+def test_read_config(mock_path):
+    mock_path.return_value = "/etc/redis/redis.conf"
+
+    config_content = """
+    bind 127.0.0.1
+    port 6379
+    # comment
+    maxmemory 2gb
+    """
+
+    with patch("builtins.open", mock_open(read_data=config_content)):
+        response = client.get("/api/v1/redis/config")
+        assert response.status_code == 200
+        config = response.json()["config"]
+        assert config["bind"] == "127.0.0.1"
+        assert config["port"] == "6379"
+        assert config["maxmemory"] == "2gb"
+
+@patch("app.services.redis_manager.RedisManager.get_config_path")
+def test_update_config(mock_path):
+    mock_path.return_value = "/etc/redis/redis.conf"
+    original_content = "bind 127.0.0.1\nport 6379\n"
+
+    with patch("builtins.open", mock_open(read_data=original_content)) as m_open:
+        # We need to handle read AND write.
+        # distinct calls to open.
+        # It's tricky with mock_open for r then w.
+        # easier to mock RedisManager.save_config directly?
+        # But we want to test logic.
+        # Let's mock RedisManager.save_config for the API test,
+        # and test save_config logic separately if needed.
+        pass
+
+@patch("app.services.redis_manager.RedisManager.save_config")
+def test_update_config_api(mock_save):
+    mock_save.return_value = True
+
+    response = client.put("/api/v1/redis/config", json={"maxmemory": "4gb"})
+    assert response.status_code == 200
+    assert response.json() == {"status": "success"}
+    mock_save.assert_called_once()
+    # Check args
+    args = mock_save.call_args[0][0]
+    assert args["maxmemory"] == "4gb"
+
+@patch("app.services.redis_manager.redis.Redis")
+def test_delete_key(mock_redis):
+    mock_instance = MagicMock()
+    mock_instance.delete.return_value = 1
+    mock_redis.return_value = mock_instance
+    RedisManager._client = None
+
+    response = client.delete("/api/v1/redis/keys/mykey")
+    assert response.status_code == 200
