@@ -96,7 +96,7 @@ const newJob = ref({
 const fetchJobs = async () => {
   try {
     const token = localStorage.getItem('token')
-    const res = await fetch('http://localhost:8000/api/v1/cron/', {
+    const res = await fetch('/api/v1/cron/', {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -127,7 +127,7 @@ const openAddModal = () => {
 const createJob = async () => {
     try {
         const token = localStorage.getItem('token')
-        const res = await fetch('http://localhost:8000/api/v1/cron/', {
+        const res = await fetch('/api/v1/cron/', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -152,7 +152,7 @@ const deleteJob = async (id) => {
 
     try {
         const token = localStorage.getItem('token')
-        const res = await fetch(`http://localhost:8000/api/v1/cron/${id}`, {
+        const res = await fetch(`/api/v1/cron/${id}`, {
             method: 'DELETE',
             headers: {
                 'Authorization': `Bearer ${token}`
