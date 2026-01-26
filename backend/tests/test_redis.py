@@ -3,11 +3,11 @@ from unittest.mock import patch, MagicMock, mock_open
 from main import app
 from app.services.redis_manager import RedisManager
 
-client = TestClient(app)
+# client = TestClient(app) - Removed, using fixture
 
 # Mock Redis Client
 @patch("app.services.redis_manager.redis.Redis")
-def test_get_info(mock_redis):
+def test_get_info(mock_redis, client):
     # Setup mock
     mock_instance = MagicMock()
     mock_instance.info.return_value = {"redis_version": "7.0.0", "uptime_in_seconds": 3600}
@@ -21,7 +21,7 @@ def test_get_info(mock_redis):
     assert response.json()["redis_version"] == "7.0.0"
 
 @patch("app.services.redis_manager.RedisManager.get_config_path")
-def test_read_config(mock_path):
+def test_read_config(mock_path, client):
     mock_path.return_value = "/etc/redis/redis.conf"
 
     config_content = """
@@ -40,7 +40,7 @@ def test_read_config(mock_path):
         assert config["maxmemory"] == "2gb"
 
 @patch("app.services.redis_manager.RedisManager.get_config_path")
-def test_update_config(mock_path):
+def test_update_config(mock_path, client):
     mock_path.return_value = "/etc/redis/redis.conf"
     original_content = "bind 127.0.0.1\nport 6379\n"
 
@@ -55,7 +55,7 @@ def test_update_config(mock_path):
         pass
 
 @patch("app.services.redis_manager.RedisManager.save_config")
-def test_update_config_api(mock_save):
+def test_update_config_api(mock_save, client):
     mock_save.return_value = True
 
     response = client.put("/api/v1/redis/config", json={"maxmemory": "4gb"})
@@ -67,7 +67,7 @@ def test_update_config_api(mock_save):
     assert args["maxmemory"] == "4gb"
 
 @patch("app.services.redis_manager.redis.Redis")
-def test_delete_key(mock_redis):
+def test_delete_key(mock_redis, client):
     mock_instance = MagicMock()
     mock_instance.delete.return_value = 1
     mock_redis.return_value = mock_instance

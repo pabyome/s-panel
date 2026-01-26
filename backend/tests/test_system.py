@@ -4,14 +4,10 @@ from unittest.mock import patch, MagicMock
 from app.api.deps import get_current_user
 from main import app
 
-# Override Auth
-def get_current_user_override():
-    return MagicMock(username="admin", role="admin")
+# app.dependency_overrides... - Removed
+# client = TestClient(app) - Removed
 
-app.dependency_overrides[get_current_user] = get_current_user_override
-client = TestClient(app)
-
-def test_list_directory_success():
+def test_list_directory_success(client):
     # We mock os.scandir to avoid reading real FS
     with patch("os.path.exists", return_value=True):
         with patch("os.path.isdir", return_value=True):
@@ -39,13 +35,13 @@ def test_list_directory_success():
                 assert data["items"][0]["name"] == "test_dir" # Sorted dirs first
                 assert data["items"][1]["name"] == "test_file.txt"
 
-def test_list_directory_not_found():
+def test_list_directory_not_found(client):
     with patch("os.path.exists", return_value=False):
         # Must use an allowed path to pass the Safe Mode check first
         response = client.get("/api/v1/system/path/list?path=/tmp/nonexistent")
         assert response.status_code == 404
 
-def test_list_directory_is_file():
+def test_list_directory_is_file(client):
      with patch("os.path.exists", return_value=True):
         with patch("os.path.isdir", return_value=False):
             response = client.get("/api/v1/system/path/list?path=/tmp/file.txt")
