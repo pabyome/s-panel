@@ -5,6 +5,9 @@ from sqlmodel import Session
 from app.models.database import create_db_and_tables, engine
 from app.services.auth_service import AuthService
 from app.api.v1 import auth, monitor, websites, firewall, supervisor, system, deployments, redis, cron
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+import os
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -38,9 +41,29 @@ app.include_router(deployments.router, prefix="/api/v1/deployments", tags=["depl
 app.include_router(redis.router, prefix="/api/v1/redis", tags=["redis"])
 app.include_router(cron.router, prefix="/api/v1/cron", tags=["cron"])
 
-@app.get("/")
-def read_root():
-    return {"message": "s-panel API is running"}
+
+# Serve Frontend (if built)
+frontend_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend", "dist")
+
+if os.path.exists(frontend_dir):
+    app.mount("/assets", StaticFiles(directory=os.path.join(frontend_dir, "assets")), name="assets")
+    # You might need to mount other static folders if your build produces them (e.g. public)
+
+    @app.get("/{full_path:path}")
+    async def serve_frontend(full_path: str):
+        # API requests are already handled by routers above because they are included first
+        # Check if file exists in dist
+        file_path = os.path.join(frontend_dir, full_path)
+        if os.path.exists(file_path) and os.path.isfile(file_path):
+            return FileResponse(file_path)
+
+        # Fallback to index.html for SPA routing
+        return FileResponse(os.path.join(frontend_dir, "index.html"))
+
+else:
+    @app.get("/")
+    def read_root():
+        return {"message": "s-panel API is running. Frontend build not found."}
 
 import socket
 
