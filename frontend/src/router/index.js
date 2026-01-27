@@ -11,6 +11,7 @@ import Redis from '../views/Redis.vue'
 import CronJobs from '../views/CronJobs.vue'
 import Users from '../views/Users.vue'
 import Login from '../views/Login.vue'
+import FileManager from '../views/FileManager.vue'
 
 const routes = [
   {
@@ -32,6 +33,7 @@ const routes = [
       { path: 'logs', name: 'logs', component: () => import('../views/Logs.vue') },
       { path: 'databases', name: 'databases', component: () => import('../views/Databases.vue') },
       { path: 'monitor', name: 'monitor', component: () => import('../views/Monitor.vue') },
+      { path: 'files', name: 'files', component: FileManager },
     ]
   },
   {
