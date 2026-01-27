@@ -7,32 +7,40 @@ from typing import Dict, Any
 class SystemMonitor:
     @staticmethod
     def get_cpu_stats() -> Dict[str, Any]:
-        # interval=0 is non-blocking. It returns usage since the last call.
-        return {
-            "percent": psutil.cpu_percent(interval=0),
-            "count": psutil.cpu_count(),
-        }
+        try:
+            return {
+                "percent": psutil.cpu_percent(interval=0),
+                "count": psutil.cpu_count(),
+            }
+        except Exception:
+            return {"percent": 0, "count": 0}
 
     @staticmethod
     def get_memory_stats() -> Dict[str, Any]:
-        vm = psutil.virtual_memory()
-        return {
-            "total": vm.total,
-            "available": vm.available,
-            "percent": vm.percent,
-            "used": vm.used,
-            "free": vm.free,
-        }
+        try:
+            vm = psutil.virtual_memory()
+            return {
+                "total": vm.total,
+                "available": vm.available,
+                "percent": vm.percent,
+                "used": vm.used,
+                "free": vm.free,
+            }
+        except Exception:
+            return {"total": 0, "available": 0, "percent": 0, "used": 0, "free": 0}
 
     @staticmethod
     def get_disk_stats() -> Dict[str, Any]:
-        disk = psutil.disk_usage('/')
-        return {
-            "total": disk.total,
-            "used": disk.used,
-            "free": disk.free,
-            "percent": disk.percent,
-        }
+        try:
+            disk = psutil.disk_usage('/')
+            return {
+                "total": disk.total,
+                "used": disk.used,
+                "free": disk.free,
+                "percent": disk.percent,
+            }
+        except Exception:
+             return {"total": 0, "used": 0, "free": 0, "percent": 0}
 
     @staticmethod
     def get_load_average() -> Dict[str, Any]:
@@ -44,39 +52,49 @@ class SystemMonitor:
                 "5min": load5,
                 "15min": load15,
             }
-        except AttributeError:
-             # Fallback for Windows (though the user is on Mac/Linux target)
+        except Exception:
+             # Fallback
             return {"1min": 0, "5min": 0, "15min": 0}
 
     @staticmethod
     def get_uptime() -> int:
-        return int(time.time() - psutil.boot_time())
+        try:
+            return int(time.time() - psutil.boot_time())
+        except Exception:
+             return 0
 
     @staticmethod
     def get_os_info() -> Dict[str, str]:
-        return {
-            "system": platform.system(),
-            "release": platform.release(),
-            "version": platform.version()
-        }
+        try:
+            return {
+                "system": platform.system(),
+                "release": platform.release(),
+                "version": platform.version()
+            }
+        except Exception:
+            return {"system": "Unknown", "release": "Unknown", "version": "Unknown"}
 
     @staticmethod
     def get_top_processes(limit: int = 20) -> list[Dict[str, Any]]:
         processes = []
-        for proc in psutil.process_iter(['pid', 'name', 'username', 'cpu_percent', 'memory_percent', 'create_time']):
-            try:
-                # fetch info
-                pInfo = proc.info
-                processes.append(pInfo)
-            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-                pass
+        try:
+            for proc in psutil.process_iter(['pid', 'name', 'username', 'cpu_percent', 'memory_percent', 'create_time']):
+                try:
+                    # fetch info
+                    pInfo = proc.info
+                    processes.append(pInfo)
+                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                    pass
 
-        # Sort by cpu_percent desc
-        processes.sort(key=lambda x: x['cpu_percent'] or 0, reverse=True)
-        return processes[:limit]
+            # Sort by cpu_percent desc
+            processes.sort(key=lambda x: x['cpu_percent'] or 0, reverse=True)
+            return processes[:limit]
+        except Exception:
+            return []
 
     @classmethod
     def get_all_stats(cls) -> Dict[str, Any]:
+        # Individual methods now handle exceptions and return defaults
         return {
             "cpu": cls.get_cpu_stats(),
             "memory": cls.get_memory_stats(),
