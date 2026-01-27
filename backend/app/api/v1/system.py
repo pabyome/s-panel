@@ -37,7 +37,12 @@ def list_directory(
     ALLOWED_ROOTS = ["/var/www", "/home", "/etc/supervisor", "/var/log", "/tmp", "/www"]
 
     # Check if path starts with any allowed root
-    is_allowed = any(clean_path.startswith(root) for root in ALLOWED_ROOTS)
+    is_allowed = False
+    for root in ALLOWED_ROOTS:
+        # Check for exact match or subdirectory (ensure trailing slash to prevent partial matches like /tmp-secret)
+        if clean_path == root or clean_path.startswith(os.path.join(root, "")):
+            is_allowed = True
+            break
 
     if not is_allowed:
         # One exception: Allow root listing "/" to show the initial choices (if they match roots)
