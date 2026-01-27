@@ -70,8 +70,33 @@
       </div>
     </div>
 
+    <!-- Loading State -->
+    <div v-if="isLoading" class="grid grid-cols-1 gap-4 sm:gap-5 lg:grid-cols-2">
+      <div v-for="i in 2" :key="i" class="rounded-2xl bg-white p-4 sm:p-6 shadow-sm ring-1 ring-gray-900/5 animate-pulse">
+        <div class="flex items-start justify-between gap-3">
+          <div class="flex items-center gap-3">
+            <div class="h-11 w-11 rounded-xl bg-gray-200"></div>
+            <div>
+              <div class="h-4 w-32 bg-gray-200 rounded"></div>
+              <div class="mt-2 h-3 w-20 bg-gray-200 rounded"></div>
+            </div>
+          </div>
+          <div class="h-6 w-16 bg-gray-200 rounded-full"></div>
+        </div>
+        <div class="mt-4 space-y-3">
+          <div class="h-3 w-48 bg-gray-200 rounded"></div>
+          <div class="h-3 w-32 bg-gray-200 rounded"></div>
+        </div>
+        <div class="mt-5 flex gap-2 border-t border-gray-100 pt-4">
+          <div class="h-8 w-20 bg-gray-200 rounded-lg"></div>
+          <div class="h-8 w-20 bg-gray-200 rounded-lg"></div>
+          <div class="h-8 w-16 bg-gray-200 rounded-lg"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- Deployments Grid - Responsive -->
-    <div v-if="deployments.length > 0" class="grid grid-cols-1 gap-4 sm:gap-5 lg:grid-cols-2">
+    <div v-else-if="deployments.length > 0" class="grid grid-cols-1 gap-4 sm:gap-5 lg:grid-cols-2">
       <div
         v-for="deploy in deployments"
         :key="deploy.id"
@@ -95,10 +120,22 @@
             </div>
           </div>
           <span :class="getStatusBadgeClass(deploy.last_status)" class="flex-shrink-0">
-            <span v-if="deploy.last_status === 'running'" class="mr-1 sm:mr-1.5 h-1.5 w-1.5 animate-pulse rounded-full bg-current"></span>
+            <span v-if="deploy.last_status === 'running'" class="mr-1.5 h-1.5 w-1.5 animate-pulse rounded-full bg-current"></span>
             <span v-else :class="getStatusDotClass(deploy.last_status)"></span>
-            <span class="hidden xs:inline">{{ getStatusText(deploy.last_status) }}</span>
+            {{ getStatusText(deploy.last_status) }}
           </span>
+        </div>
+
+        <!-- Running Deployment Banner -->
+        <div v-if="deploy.last_status === 'running'" class="mt-3 rounded-lg bg-blue-50 px-3 py-2 ring-1 ring-blue-100">
+          <div class="flex items-center gap-2">
+            <svg class="h-4 w-4 animate-spin text-blue-600" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span class="text-xs font-medium text-blue-700">Deployment in progress...</span>
+            <button @click="showLogs(deploy)" class="ml-auto text-xs font-medium text-blue-600 hover:text-blue-800 underline">View Logs</button>
+          </div>
         </div>
 
         <!-- Card Body -->
@@ -130,13 +167,21 @@
         <div class="mt-4 sm:mt-5 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3 sm:pt-4">
           <button
             @click="triggerDeploy(deploy)"
-            :disabled="deploy.last_status === 'running'"
+            :disabled="deploy.last_status === 'running' || triggeringId === deploy.id"
+            :title="deploy.last_status === 'running' ? 'A deployment is already in progress' : 'Trigger deployment'"
             class="inline-flex items-center gap-1 sm:gap-1.5 rounded-lg bg-violet-50 px-2.5 sm:px-3 py-1.5 text-xs font-medium text-violet-700 transition-colors hover:bg-violet-100 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <svg class="h-3 w-3 sm:h-3.5 sm:w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <svg v-if="triggeringId === deploy.id" class="h-3 w-3 sm:h-3.5 sm:w-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <svg v-else-if="deploy.last_status === 'running'" class="h-3 w-3 sm:h-3.5 sm:w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+            </svg>
+            <svg v-else class="h-3 w-3 sm:h-3.5 sm:w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
             </svg>
-            <span class="hidden sm:inline">Deploy</span>
+            <span class="hidden sm:inline">{{ deploy.last_status === 'running' ? 'Running' : 'Deploy' }}</span>
           </button>
           <button
             @click="showDetails(deploy)"
@@ -166,10 +211,15 @@
             <span class="hidden sm:inline">Edit</span>
           </button>
           <button
-            @click="deleteDeployment(deploy.id)"
-            class="ml-auto inline-flex items-center gap-1 sm:gap-1.5 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50"
+            @click="confirmDelete(deploy.id)"
+            :disabled="deletingId === deploy.id"
+            class="ml-auto inline-flex items-center gap-1 sm:gap-1.5 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <svg class="h-3 w-3 sm:h-3.5 sm:w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <svg v-if="deletingId === deploy.id" class="h-3 w-3 sm:h-3.5 sm:w-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <svg v-else class="h-3 w-3 sm:h-3.5 sm:w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
             </svg>
           </button>
@@ -178,7 +228,7 @@
     </div>
 
     <!-- Empty State -->
-    <div v-else class="rounded-2xl bg-white p-8 sm:p-12 shadow-sm ring-1 ring-gray-900/5 text-center">
+    <div v-else-if="!isLoading" class="rounded-2xl bg-white p-8 sm:p-12 shadow-sm ring-1 ring-gray-900/5 text-center">
       <div class="mx-auto flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-full bg-violet-100">
         <svg class="h-6 w-6 sm:h-7 sm:w-7 text-violet-600" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" d="M15.59 14.37a6 6 0 01-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.631 8.41m5.96 5.96a14.926 14.926 0 01-5.841 2.58m-.119-8.54a6 6 0 00-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 00-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 01-2.448-2.448 14.9 14.9 0 01.06-.312m-2.24 2.39a4.493 4.493 0 00-1.757 4.306 4.493 4.493 0 004.306-1.758M16.5 9a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
@@ -299,8 +349,12 @@
         </div>
       </div>
       <div class="mt-4 sm:mt-6 flex flex-col sm:flex-row gap-2 sm:gap-3">
-        <button @click="clearDeploymentLogs" type="button" class="flex-1 rounded-xl bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-600 transition-all hover:bg-red-100">
-          Clear Logs
+        <button @click="confirmClearLogs" :disabled="isClearingLogs" type="button" class="flex-1 rounded-xl bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-600 transition-all hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2">
+          <svg v-if="isClearingLogs" class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          {{ isClearingLogs ? 'Clearing...' : 'Clear Logs' }}
         </button>
         <button @click="closeLogs" type="button" class="flex-1 rounded-xl bg-gray-100 px-4 py-2.5 text-sm font-semibold text-gray-700 transition-all hover:bg-gray-200">
           Close
@@ -363,21 +417,48 @@
           <p class="mt-1.5 text-xs text-gray-500">Run after git pull. 10 min timeout.</p>
         </div>
 
-        <!-- Email Notifications Section -->
-        <div class="rounded-xl bg-amber-50 p-4 ring-1 ring-amber-200">
-          <label class="flex items-center gap-2 text-sm font-medium text-amber-900 mb-2">
-            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
-            </svg>
-            Email Notifications
-          </label>
-          <input
-            type="text"
-            v-model="editForm.notification_emails"
-            class="block w-full rounded-lg border-0 py-2 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-amber-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-amber-500 sm:text-sm"
-            placeholder="email1@example.com, email2@example.com"
-          >
-          <p class="mt-1.5 text-xs text-amber-700">Comma-separated emails to notify on deploy success/failure</p>
+        <!-- Notification Settings Section -->
+        <div class="rounded-xl bg-gradient-to-br from-violet-50 to-purple-50 p-4 ring-1 ring-violet-200/50">
+          <div class="flex items-start gap-3">
+            <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-100">
+              <svg class="h-5 w-5 text-violet-600" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+              </svg>
+            </div>
+            <div class="flex-1">
+              <h4 class="text-sm font-semibold text-gray-900">Notification Settings</h4>
+              <p class="mt-0.5 text-xs text-gray-500">Configure email alerts for deployments</p>
+            </div>
+          </div>
+
+          <div class="mt-4 space-y-3">
+            <div>
+              <label class="block text-xs font-medium text-gray-700 mb-1.5">Email Recipients</label>
+              <div class="relative">
+                <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                  <svg class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                  </svg>
+                </div>
+                <input
+                  type="text"
+                  v-model="editForm.notification_emails"
+                  class="block w-full rounded-lg border-0 py-2.5 pl-10 pr-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-violet-500 sm:text-sm"
+                  placeholder="admin@example.com, team@example.com"
+                >
+              </div>
+              <p class="mt-1.5 text-xs text-gray-500">Separate multiple emails with commas. Leave empty to disable notifications.</p>
+            </div>
+
+            <div v-if="editForm.notification_emails" class="flex flex-wrap gap-1.5">
+              <span v-for="email in editForm.notification_emails.split(',').filter(e => e.trim())" :key="email" class="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-medium text-violet-700">
+                <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                </svg>
+                {{ email.trim() }}
+              </span>
+            </div>
+          </div>
         </div>
 
         <div class="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-2">
@@ -390,9 +471,14 @@
           </button>
           <button
             type="submit"
-            class="flex-1 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-500/25 transition-all hover:bg-violet-500"
+            :disabled="isUpdating"
+            class="flex-1 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-500/25 transition-all hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
           >
-            Save Changes
+            <svg v-if="isUpdating" class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            {{ isUpdating ? 'Saving...' : 'Save Changes' }}
           </button>
         </div>
       </form>
@@ -454,21 +540,48 @@
           <p class="mt-1.5 text-xs text-gray-500">Run after git pull. Commands run as the project directory owner.</p>
         </div>
 
-        <!-- Email Notifications Section -->
-        <div class="rounded-xl bg-amber-50 p-4 ring-1 ring-amber-200">
-          <label class="flex items-center gap-2 text-sm font-medium text-amber-900 mb-2">
-            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
-            </svg>
-            Email Notifications
-          </label>
-          <input
-            type="text"
-            v-model="form.notification_emails"
-            class="block w-full rounded-lg border-0 py-2 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-amber-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-amber-500 sm:text-sm"
-            placeholder="email1@example.com, email2@example.com"
-          >
-          <p class="mt-1.5 text-xs text-amber-700">Comma-separated emails to notify on deploy success/failure</p>
+        <!-- Notification Settings Section -->
+        <div class="rounded-xl bg-gradient-to-br from-violet-50 to-purple-50 p-4 ring-1 ring-violet-200/50">
+          <div class="flex items-start gap-3">
+            <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-100">
+              <svg class="h-5 w-5 text-violet-600" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+              </svg>
+            </div>
+            <div class="flex-1">
+              <h4 class="text-sm font-semibold text-gray-900">Notification Settings</h4>
+              <p class="mt-0.5 text-xs text-gray-500">Get notified on deployment success or failure</p>
+            </div>
+          </div>
+
+          <div class="mt-4 space-y-3">
+            <div>
+              <label class="block text-xs font-medium text-gray-700 mb-1.5">Email Recipients</label>
+              <div class="relative">
+                <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                  <svg class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                  </svg>
+                </div>
+                <input
+                  type="text"
+                  v-model="form.notification_emails"
+                  class="block w-full rounded-lg border-0 py-2.5 pl-10 pr-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-violet-500 sm:text-sm"
+                  placeholder="admin@example.com, team@example.com"
+                >
+              </div>
+              <p class="mt-1.5 text-xs text-gray-500">Separate multiple emails with commas. Leave empty to disable notifications.</p>
+            </div>
+
+            <div v-if="form.notification_emails" class="flex flex-wrap gap-1.5">
+              <span v-for="email in form.notification_emails.split(',').filter(e => e.trim())" :key="email" class="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-medium text-violet-700">
+                <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                </svg>
+                {{ email.trim() }}
+              </span>
+            </div>
+          </div>
         </div>
 
         <div class="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-2">
@@ -481,13 +594,42 @@
           </button>
           <button
             type="submit"
-            class="flex-1 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-500/25 transition-all hover:bg-violet-500"
+            :disabled="isCreating"
+            class="flex-1 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-500/25 transition-all hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
           >
-            Create Deployment
+            <svg v-if="isCreating" class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            {{ isCreating ? 'Creating...' : 'Create Deployment' }}
           </button>
         </div>
       </form>
     </BaseModal>
+
+    <!-- Delete Confirmation Modal -->
+    <ConfirmModal
+      :isOpen="isDeleteModalOpen"
+      type="danger"
+      title="Delete Deployment"
+      message="Are you sure you want to delete this deployment? This action cannot be undone."
+      confirmText="Delete"
+      :isLoading="deletingId !== null"
+      @confirm="deleteDeployment"
+      @cancel="isDeleteModalOpen = false"
+    />
+
+    <!-- Clear Logs Confirmation Modal -->
+    <ConfirmModal
+      :isOpen="isClearLogsModalOpen"
+      type="warning"
+      title="Clear Deployment Logs"
+      message="Are you sure you want to clear these deployment logs? This action cannot be undone."
+      confirmText="Clear Logs"
+      :isLoading="isClearingLogs"
+      @confirm="clearDeploymentLogs"
+      @cancel="isClearLogsModalOpen = false"
+    />
   </div>
 </template>
 
@@ -497,6 +639,10 @@ import axios from 'axios'
 import BaseModal from '../components/BaseModal.vue'
 import PathInput from '../components/PathInput.vue'
 import UserSelect from '../components/UserSelect.vue'
+import ConfirmModal from '../components/ConfirmModal.vue'
+import { useToast } from '../composables/useToast'
+
+const toast = useToast()
 
 const deployments = ref([])
 const processes = ref([])
@@ -508,6 +654,19 @@ const selectedDeploy = ref(null)
 const editingDeployId = ref(null)
 const logsContainer = ref(null)
 let pollInterval = null
+
+// Loading states
+const isLoading = ref(false)
+const isCreating = ref(false)
+const isUpdating = ref(false)
+const deletingId = ref(null)
+const triggeringId = ref(null)
+const isClearingLogs = ref(false)
+
+// Confirmation modals
+const isDeleteModalOpen = ref(false)
+const isClearLogsModalOpen = ref(false)
+const deploymentToDelete = ref(null)
 
 // WebSocket for live logs
 let logsSocket = null
@@ -539,7 +698,8 @@ const totalDeploys = computed(() => {
     return deployments.value.reduce((sum, d) => sum + (d.deploy_count || 0), 0)
 })
 
-const fetchDeployments = async () => {
+const fetchDeployments = async (showLoading = false) => {
+    if (showLoading) isLoading.value = true
     try {
         const response = await axios.get('/api/v1/deployments/')
         deployments.value = response.data
@@ -553,6 +713,8 @@ const fetchDeployments = async () => {
         }
     } catch (e) {
         console.error("Failed to fetch deployments", e)
+    } finally {
+        if (showLoading) isLoading.value = false
     }
 }
 
@@ -640,6 +802,8 @@ const openModal = () => {
 }
 
 const createDeployment = async () => {
+    if (isCreating.value) return
+    isCreating.value = true
     try {
         await axios.post('/api/v1/deployments/', {
             ...form,
@@ -648,10 +812,13 @@ const createDeployment = async () => {
             run_as_user: form.run_as_user || 'root',
             notification_emails: form.notification_emails || null
         })
+        toast.success('Deployment created successfully')
         isModalOpen.value = false
         fetchDeployments()
     } catch (e) {
-        alert("Failed to create deployment: " + (e.response?.data?.detail || e.message))
+        toast.error(e.response?.data?.detail || e.message || "Failed to create deployment")
+    } finally {
+        isCreating.value = false
     }
 }
 
@@ -669,6 +836,8 @@ const openEditModal = (deploy) => {
 }
 
 const updateDeployment = async () => {
+    if (isUpdating.value) return
+    isUpdating.value = true
     try {
         await axios.put(`/api/v1/deployments/${editingDeployId.value}`, {
             ...editForm,
@@ -677,24 +846,40 @@ const updateDeployment = async () => {
             run_as_user: editForm.run_as_user || 'root',
             notification_emails: editForm.notification_emails || null
         })
+        toast.success('Deployment updated successfully')
         isEditModalOpen.value = false
         fetchDeployments()
     } catch (e) {
-        alert("Failed to update deployment: " + (e.response?.data?.detail || e.message))
+        toast.error(e.response?.data?.detail || e.message || "Failed to update deployment")
+    } finally {
+        isUpdating.value = false
     }
 }
 
-const deleteDeployment = async (id) => {
-    if(!confirm("Are you sure you want to delete this deployment?")) return;
+const confirmDelete = (id) => {
+    deploymentToDelete.value = id
+    isDeleteModalOpen.value = true
+}
+
+const deleteDeployment = async () => {
+    if (!deploymentToDelete.value || deletingId.value) return
+    deletingId.value = deploymentToDelete.value
     try {
-        await axios.delete(`/api/v1/deployments/${id}`)
+        await axios.delete(`/api/v1/deployments/${deploymentToDelete.value}`)
+        toast.success('Deployment deleted successfully')
+        isDeleteModalOpen.value = false
         fetchDeployments()
     } catch (e) {
-        alert("Failed to delete")
+        toast.error("Failed to delete deployment")
+    } finally {
+        deletingId.value = null
+        deploymentToDelete.value = null
     }
 }
 
 const triggerDeploy = async (deploy) => {
+    if (triggeringId.value) return
+    triggeringId.value = deploy.id
     try {
         await axios.post(`/api/v1/deployments/${deploy.id}/trigger`)
         // Immediately show running status
@@ -702,7 +887,9 @@ const triggerDeploy = async (deploy) => {
         // Open logs modal with live updates
         showLogs(deploy)
     } catch (e) {
-        alert("Failed to trigger deployment: " + (e.response?.data?.detail || e.message))
+        toast.error(e.response?.data?.detail || e.message || "Failed to trigger deployment")
+    } finally {
+        triggeringId.value = null
     }
 }
 
@@ -749,10 +936,13 @@ const getWebhookUrl = (deploy) => {
     return `${window.location.origin}${deploy.webhook_url}`
 }
 
-const clearDeploymentLogs = async () => {
-    if (!selectedDeploy.value) return
-    if (!confirm("Are you sure you want to clear these deployment logs?")) return
+const confirmClearLogs = () => {
+    isClearLogsModalOpen.value = true
+}
 
+const clearDeploymentLogs = async () => {
+    if (!selectedDeploy.value || isClearingLogs.value) return
+    isClearingLogs.value = true
     try {
         await axios.post(`/api/v1/deployments/${selectedDeploy.value.id}/logs/clear`)
         selectedDeploy.value.last_logs = null
@@ -760,8 +950,12 @@ const clearDeploymentLogs = async () => {
         // Update main list too
         const d = deployments.value.find(x => x.id === selectedDeploy.value.id)
         if (d) d.last_logs = null
+        toast.success('Logs cleared successfully')
+        isClearLogsModalOpen.value = false
     } catch (e) {
-        alert("Failed to clear logs: " + (e.response?.data?.detail || e.message))
+        toast.error(e.response?.data?.detail || e.message || "Failed to clear logs")
+    } finally {
+        isClearingLogs.value = false
     }
 }
 
@@ -808,7 +1002,7 @@ const formatRelativeTime = (dateStr) => {
 }
 
 onMounted(() => {
-    fetchDeployments()
+    fetchDeployments(true)
     // Start polling if any deployment is running
     setTimeout(() => {
         if (deployments.value.some(d => d.last_status === 'running')) {

@@ -9,6 +9,7 @@ import SupervisorDetail from '../views/SupervisorDetail.vue'
 import Deployments from '../views/Deployments.vue'
 import Redis from '../views/Redis.vue'
 import CronJobs from '../views/CronJobs.vue'
+import Users from '../views/Users.vue'
 import Login from '../views/Login.vue'
 
 const routes = [
@@ -25,6 +26,7 @@ const routes = [
       { path: 'deployments', name: 'deployments', component: Deployments },
       { path: 'redis', name: 'redis', component: Redis },
       { path: 'cron', name: 'cron', component: CronJobs },
+      { path: 'users', name: 'users', component: Users },
       { path: 'backups', name: 'backups', component: () => import('../views/Backups.vue') },
       { path: 'settings', name: 'settings', component: () => import('../views/Settings.vue') },
       { path: 'logs', name: 'logs', component: () => import('../views/Logs.vue') },

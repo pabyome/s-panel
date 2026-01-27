@@ -42,7 +42,10 @@
                       <textarea v-model="configContent" class="flex-1 font-mono text-xs w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-4" spellcheck="false"></textarea>
                       <div class="mt-4 flex justify-end gap-3">
                           <button @click="fetchConfig" class="rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">Reload</button>
-                          <button @click="saveConfig" class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">Save & Reload Nginx</button>
+                          <button @click="confirmSaveConfig" :disabled="isSaving" class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                              <svg v-if="isSaving" class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                              {{ isSaving ? 'Saving...' : 'Save & Reload Nginx' }}
+                          </button>
                       </div>
                   </div>
 
@@ -67,6 +70,18 @@
       </div>
     </Dialog>
   </TransitionRoot>
+
+  <!-- Save Config Confirmation Modal -->
+  <ConfirmModal
+    :isOpen="isSaveConfigModalOpen"
+    type="warning"
+    title="Save Nginx Configuration"
+    message="Are you sure you want to save this configuration? Bad config can stop Nginx."
+    confirmText="Save & Reload"
+    :isLoading="isSaving"
+    @confirm="saveConfig"
+    @cancel="isSaveConfigModalOpen = false"
+  />
 </template>
 
 <script setup>
@@ -74,6 +89,10 @@ import { ref, watch } from 'vue'
 import { Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot } from '@headlessui/vue'
 import { XMarkIcon } from '@heroicons/vue/24/outline'
 import axios from 'axios'
+import ConfirmModal from './ConfirmModal.vue'
+import { useToast } from '../composables/useToast'
+
+const toast = useToast()
 
 const props = defineProps({
   isOpen: Boolean,
@@ -91,6 +110,8 @@ const currentTab = ref('Nginx Config')
 const configContent = ref('')
 const logContent = ref('')
 const logType = ref('access')
+const isSaveConfigModalOpen = ref(false)
+const isSaving = ref(false)
 
 const close = () => {
     emit('close')
@@ -106,19 +127,27 @@ const fetchConfig = async () => {
     }
 }
 
+const confirmSaveConfig = () => {
+    isSaveConfigModalOpen.value = true
+}
+
 const saveConfig = async () => {
-    if (!confirm("Are you sure? Bad config can stop Nginx.")) return
+    if (isSaving.value) return
+    isSaving.value = true
     try {
         const { data } = await axios.post(`/api/v1/websites/${props.website.id}/config`, {
             content: configContent.value
         })
         if (data.ok) {
-            alert(data.message)
+            toast.success(data.message || 'Configuration saved successfully')
         } else {
-            alert("Error: " + data.message)
+            toast.error(data.message || 'Error saving configuration')
         }
+        isSaveConfigModalOpen.value = false
     } catch (e) {
-        alert("Failed to save: " + (e.response?.data?.detail || e.message))
+        toast.error(e.response?.data?.detail || e.message || "Failed to save")
+    } finally {
+        isSaving.value = false
     }
 }
 

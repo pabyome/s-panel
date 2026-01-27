@@ -8,14 +8,15 @@
       </div>
       <div class="flex gap-2">
         <button
-          @click="clearLog"
-          :disabled="!selectedFile"
+          @click="confirmClearLog"
+          :disabled="!selectedFile || isClearing"
           class="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-red-600 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-red-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
-            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <svg v-if="isClearing" class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            <svg v-else class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
             </svg>
-            Clear Log
+            {{ isClearing ? 'Clearing...' : 'Clear Log' }}
         </button>
         <button
             @click="refreshLog"
@@ -79,17 +80,35 @@
         </div>
       </div>
     </div>
+
+    <!-- Clear Log Confirmation Modal -->
+    <ConfirmModal
+      :isOpen="isClearModalOpen"
+      type="warning"
+      title="Clear Log File"
+      :message="`Are you sure you want to clear/truncate ${selectedFile?.name}?`"
+      confirmText="Clear Log"
+      :isLoading="isClearing"
+      @confirm="clearLog"
+      @cancel="isClearModalOpen = false"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
+import ConfirmModal from '../components/ConfirmModal.vue'
+import { useToast } from '../composables/useToast'
+
+const toast = useToast()
 
 const logFiles = ref([])
 const selectedFile = ref(null)
 const logContent = ref('')
 const loading = ref(false)
+const isClearing = ref(false)
+const isClearModalOpen = ref(false)
 
 const formatBytes = (bytes, decimals = 1) => {
     if (!+bytes) return '0 B'
@@ -129,16 +148,23 @@ const refreshLog = async () => {
     }
 }
 
-const clearLog = async () => {
-    if (!selectedFile.value) return
-    if (!confirm(`Are you sure you want to clear/truncate ${selectedFile.value.name}?`)) return
+const confirmClearLog = () => {
+    isClearModalOpen.value = true
+}
 
+const clearLog = async () => {
+    if (!selectedFile.value || isClearing.value) return
+    isClearing.value = true
     try {
         await axios.post('/api/v1/logs/clear_file', { path: selectedFile.value.path })
+        toast.success('Log file cleared successfully')
+        isClearModalOpen.value = false
         refreshLog()
         fetchFiles() // Update size
     } catch (e) {
-        alert("Failed to clear log: " + (e.response?.data?.detail || e.message))
+        toast.error(e.response?.data?.detail || e.message || "Failed to clear log")
+    } finally {
+        isClearing.value = false
     }
 }
 

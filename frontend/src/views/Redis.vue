@@ -42,7 +42,10 @@
              </div>
          </div>
          <div class="mt-6">
-             <button @click="flushDb" class="bg-red-600 text-white px-4 py-2 rounded shadow hover:bg-red-500">Flush All Data</button>
+             <button @click="confirmFlushDb" :disabled="isFlushing" class="inline-flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded shadow hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed">
+               <svg v-if="isFlushing" class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+               {{ isFlushing ? 'Flushing...' : 'Flush All Data' }}
+             </button>
          </div>
       </div>
 
@@ -83,7 +86,10 @@
                 </div>
             </div>
             <div class="flex justify-end pt-4">
-                <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded shadow hover:bg-indigo-500">Save Config</button>
+                <button type="submit" :disabled="isSavingConfig" class="inline-flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded shadow hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                  <svg v-if="isSavingConfig" class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                  {{ isSavingConfig ? 'Saving...' : 'Save Config' }}
+                </button>
             </div>
          </form>
       </div>
@@ -99,7 +105,10 @@
             <ul class="divide-y divide-gray-200">
                 <li v-for="key in keys" :key="key" class="px-4 py-4 flex items-center justify-between sm:px-6 hover:bg-gray-50 cursor-pointer" @click="inspectKey(key)">
                     <span class="text-sm font-medium text-indigo-600 truncate">{{ key }}</span>
-                     <button @click.stop="deleteKey(key)" class="text-red-600 hover:text-red-900 text-sm">Delete</button>
+                     <button @click.stop="confirmDeleteKey(key)" :disabled="deletingKey !== null" class="inline-flex items-center gap-1 text-red-600 hover:text-red-900 text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                       <svg v-if="deletingKey === key" class="h-3 w-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                       {{ deletingKey === key ? 'Deleting...' : 'Delete' }}
+                     </button>
                 </li>
                  <li v-if="keys.length === 0" class="px-4 py-4 text-gray-500 text-sm text-center">No keys found.</li>
             </ul>
@@ -131,11 +140,39 @@
       </div>
 
     </div>
+
+    <!-- Delete Key Confirmation Modal -->
+    <ConfirmModal
+      :isOpen="isDeleteKeyModalOpen"
+      type="danger"
+      title="Delete Key"
+      :message="`Are you sure you want to delete key '${keyToDelete}'?`"
+      confirmText="Delete"
+      :isLoading="deletingKey !== null"
+      @confirm="deleteKey"
+      @cancel="isDeleteKeyModalOpen = false"
+    />
+
+    <!-- Flush DB Confirmation Modal -->
+    <ConfirmModal
+      :isOpen="isFlushDbModalOpen"
+      type="danger"
+      title="Flush Database"
+      message="Are you sure? This will delete ALL keys in the current database. This action cannot be undone."
+      confirmText="Flush All"
+      :isLoading="isFlushing"
+      @confirm="flushDb"
+      @cancel="isFlushDbModalOpen = false"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import ConfirmModal from '../components/ConfirmModal.vue'
+import { useToast } from '../composables/useToast'
+
+const toast = useToast()
 
 const activeTab = ref('overview')
 const loading = ref(true)
@@ -154,6 +191,16 @@ const configForm = ref({
 const keys = ref([])
 const keyPattern = ref('*')
 const selectedKey = ref(null)
+
+// Modal states
+const isDeleteKeyModalOpen = ref(false)
+const isFlushDbModalOpen = ref(false)
+const keyToDelete = ref(null)
+
+// Loading states
+const isSavingConfig = ref(false)
+const isFlushing = ref(false)
+const deletingKey = ref(null)
 
 const API_BASE = window.location.origin + '/api/v1/redis' // Uses proxy in dev
 
@@ -196,6 +243,8 @@ const fetchConfig = async () => {
 }
 
 const saveConfig = async () => {
+    if (isSavingConfig.value) return
+    isSavingConfig.value = true
     try {
         const res = await fetch(`${API_BASE}/config`, {
             method: 'PUT',
@@ -205,10 +254,12 @@ const saveConfig = async () => {
             },
             body: JSON.stringify(configForm.value)
         })
-        if (!res.ok) alert("Failed to save config")
-        else alert("Config saved! You may need to restart Redis for changes to apply.")
+        if (!res.ok) toast.error("Failed to save config")
+        else toast.success("Config saved! You may need to restart Redis for changes to apply.")
     } catch (e) {
-        alert(e.message)
+        toast.error(e.message)
+    } finally {
+        isSavingConfig.value = false
     }
 }
 
@@ -220,7 +271,7 @@ const loadKeys = async () => {
         const data = await res.json()
         keys.value = data.keys || []
     } catch (e) {
-        alert(e.message)
+        toast.error(e.message)
     }
 }
 
@@ -233,37 +284,58 @@ const inspectKey = async (key) => {
         })
         selectedKey.value = await res.json()
     } catch (e) {
-        alert(e.message)
+        toast.error(e.message)
     }
 }
 
-const deleteKey = async (key) => {
-    if(!confirm(`Delete key ${key}?`)) return
+const confirmDeleteKey = (key) => {
+    keyToDelete.value = key
+    isDeleteKeyModalOpen.value = true
+}
+
+const deleteKey = async () => {
+    if (!keyToDelete.value || deletingKey.value) return
+    deletingKey.value = keyToDelete.value
     try {
-        const res = await fetch(`${API_BASE}/keys/${key}`, {
+        const res = await fetch(`${API_BASE}/keys/${keyToDelete.value}`, {
              method: 'DELETE',
              headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
         })
-        if(res.ok) loadKeys()
+        if(res.ok) {
+            toast.success('Key deleted successfully')
+            isDeleteKeyModalOpen.value = false
+            loadKeys()
+        }
     } catch (e) {
-        alert(e.message)
+        toast.error(e.message)
+    } finally {
+        deletingKey.value = null
+        keyToDelete.value = null
     }
 }
 
+const confirmFlushDb = () => {
+    isFlushDbModalOpen.value = true
+}
+
 const flushDb = async () => {
-    if(!confirm("Are you sure? This will delete ALL keys in the current database.")) return
-     try {
+    if (isFlushing.value) return
+    isFlushing.value = true
+    try {
         const res = await fetch(`${API_BASE}/flush`, {
              method: 'POST',
              headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
         })
         if(res.ok) {
-            alert("Database flushed.")
+            toast.success("Database flushed")
+            isFlushDbModalOpen.value = false
             loadKeys()
             fetchInfo()
         }
     } catch (e) {
-        alert(e.message)
+        toast.error(e.message)
+    } finally {
+        isFlushing.value = false
     }
 }
 

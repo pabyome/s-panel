@@ -40,7 +40,7 @@
 
           <button
             v-if="updateInfo.updates_available"
-            @click="applyUpdate"
+            @click="confirmUpdate"
             :disabled="updating"
             class="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 hover:bg-indigo-500 disabled:opacity-50"
           >
@@ -99,15 +99,32 @@
          </form>
       </div>
     </div>
+
+    <!-- Update Confirmation Modal -->
+    <ConfirmModal
+      :isOpen="isUpdateModalOpen"
+      type="warning"
+      title="Update & Restart"
+      message="Are you sure you want to update? This will restart the server and the panel will be unavailable for a few minutes."
+      confirmText="Update Now"
+      :isLoading="updating"
+      @confirm="applyUpdate"
+      @cancel="isUpdateModalOpen = false"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
+import ConfirmModal from '../components/ConfirmModal.vue'
+import { useToast } from '../composables/useToast'
+
+const toast = useToast()
 
 const checking = ref(false)
 const updating = ref(false)
+const isUpdateModalOpen = ref(false)
 const updateInfo = ref({
     updates_available: false,
     current_commit: '',
@@ -143,9 +160,9 @@ const saveSmtp = async () => {
             admin_emails: smtpForm.value.admin_emails_str.split(',').map(e => e.trim()).filter(e => e)
         }
         await axios.post('/api/v1/system/settings/smtp', payload)
-        alert("Settings saved successfully")
+        toast.success("Settings saved successfully")
     } catch (e) {
-        alert("Failed to save settings: " + (e.response?.data?.detail || e.message))
+        toast.error(e.response?.data?.detail || e.message || "Failed to save settings")
     }
 }
 
@@ -162,14 +179,18 @@ const checkForUpdates = async () => {
     }
 }
 
+const confirmUpdate = () => {
+    isUpdateModalOpen.value = true
+}
+
 const applyUpdate = async () => {
-    if (!confirm("Are you sure? This will restart the server.")) return
     updating.value = true
     try {
         await axios.post('/api/v1/system/update/apply')
-        alert("Update started! expecting service restart. Please reload this page in 2-3 minutes.")
+        toast.info("Update started! The service will restart. Please reload this page in 2-3 minutes.")
+        isUpdateModalOpen.value = false
     } catch (e) {
-        alert("Failed to start update")
+        toast.error("Failed to start update")
         updating.value = false
     }
 }

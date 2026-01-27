@@ -32,7 +32,9 @@
 import { ref } from 'vue';
 import { useAuthStore } from '../stores/auth';
 import { useRouter } from 'vue-router';
+import { useToast } from '../composables/useToast';
 
+const toast = useToast();
 const username = ref('');
 const password = ref('');
 const authStore = useAuthStore();
@@ -43,7 +45,7 @@ const handleLogin = async () => {
     if (success) {
         router.push('/');
     } else {
-        alert('Login failed');
+        toast.error('Login failed. Please check your credentials.');
     }
 };
 </script>

@@ -7,14 +7,16 @@ logger = logging.getLogger(__name__)
 
 DB_FILE = "spanel.db"
 
+
 def get_db_path():
-    url = "sqlite:///spanel.db" # Default
+    url = "sqlite:///spanel.db"  # Default
     if hasattr(settings, "DATABASE_URL"):
         url = settings.DATABASE_URL
 
     if url.startswith("sqlite:///"):
         return url.replace("sqlite:///", "")
     return "spanel.db"
+
 
 def add_column_safe(cursor, table, col_def):
     """Helper to safely add a column to a table."""
@@ -28,6 +30,7 @@ def add_column_safe(cursor, table, col_def):
         else:
             # Some versions might fail differently, but generally this means it exists or table is locked
             logger.warning(f"Migration warning for {table} column {col_def}: {e}")
+
 
 def run_migrations():
     db_path = get_db_path()
@@ -47,7 +50,7 @@ def run_migrations():
         cursor.execute("PRAGMA table_info(deploymentconfig)")
         columns = [col[1] for col in cursor.fetchall()]
 
-        if "id" in columns: # Table exists
+        if "id" in columns:  # Table exists
             if "last_commit" not in columns:
                 add_column_safe(cursor, "deploymentconfig", "last_commit VARCHAR")
 
@@ -67,7 +70,7 @@ def run_migrations():
         cursor.execute("PRAGMA table_info(website)")
         website_columns = [col[1] for col in cursor.fetchall()]
 
-        if "id" in website_columns: # Table exists
+        if "id" in website_columns:  # Table exists
             if "created_at" not in website_columns:
                 add_column_safe(cursor, "website", "created_at DATETIME DEFAULT CURRENT_TIMESTAMP")
 

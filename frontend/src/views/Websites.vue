@@ -159,13 +159,19 @@
               </svg>
               Visit
             </a>
+            <button v-if="!isEditing" @click="startEditing" class="inline-flex items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-100">
+              <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+              </svg>
+              Edit
+            </button>
             <button @click="isManageOpen = true" class="inline-flex items-center gap-1.5 rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 transition-colors hover:bg-indigo-100">
                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
                </svg>
                Manage
             </button>
-            <button @click="deleteWebsite(selectedWebsite.id)" class="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50">
+            <button @click="confirmDelete(selectedWebsite.id)" class="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50">
               <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
               </svg>
@@ -175,7 +181,7 @@
         </div>
 
         <div class="p-6">
-          <form @submit.prevent="handleSubmit" class="space-y-6">
+          <form @submit.prevent="selectedWebsite?.id ? updateWebsite() : handleSubmit()" class="space-y-6">
             <!-- Name & Domain -->
             <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <div>
@@ -185,7 +191,7 @@
                     type="text"
                     v-model="form.name"
                     id="name"
-                    :disabled="!!selectedWebsite?.id"
+                    :disabled="selectedWebsite?.id && !isEditing"
                     class="block w-full rounded-xl border-0 py-2.5 px-4 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm disabled:bg-gray-50 disabled:text-gray-500"
                     placeholder="My App"
                   >
@@ -195,7 +201,7 @@
               <div>
                 <label for="domain" class="block text-sm font-medium text-gray-700">Domain Name</label>
                 <div class="mt-2">
-                  <div class="flex rounded-xl shadow-sm ring-1 ring-inset ring-gray-300 focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-500">
+                  <div class="flex rounded-xl shadow-sm ring-1 ring-inset ring-gray-300 focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-500" :class="selectedWebsite?.id ? 'bg-gray-50' : ''">
                     <span class="flex select-none items-center pl-4 text-gray-500 sm:text-sm">http://</span>
                     <input
                       type="text"
@@ -206,6 +212,7 @@
                       placeholder="example.com"
                     >
                   </div>
+                  <p v-if="selectedWebsite?.id" class="mt-1 text-xs text-gray-400">Domain cannot be changed after creation</p>
                 </div>
               </div>
             </div>
@@ -215,7 +222,7 @@
               <div class="sm:col-span-4">
                 <label for="path" class="block text-sm font-medium text-gray-700">Project Path</label>
                 <div class="mt-2">
-                  <PathInput v-model="form.project_path" :disabled="!!selectedWebsite?.id" placeholder="/var/www/my-project" />
+                  <PathInput v-model="form.project_path" :disabled="selectedWebsite?.id && !isEditing" placeholder="/var/www/my-project" />
                 </div>
                 <p class="mt-1.5 text-xs text-gray-500">Absolute path to your project root directory</p>
               </div>
@@ -227,7 +234,7 @@
                     type="number"
                     v-model="form.port"
                     id="port"
-                    :disabled="!!selectedWebsite?.id"
+                    :disabled="selectedWebsite?.id && !isEditing"
                     class="block w-full rounded-xl border-0 py-2.5 px-4 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm disabled:bg-gray-50 disabled:text-gray-500"
                     placeholder="3000"
                   >
@@ -237,6 +244,7 @@
 
             <!-- Actions -->
             <div class="pt-5 border-t border-gray-100 flex items-center justify-end gap-3">
+              <!-- Create mode -->
               <template v-if="!selectedWebsite?.id">
                 <button
                   type="button"
@@ -247,16 +255,43 @@
                 </button>
                 <button
                   type="submit"
-                  class="rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition-all hover:bg-indigo-500 hover:shadow-xl hover:shadow-indigo-500/30"
+                  :disabled="isCreating"
+                  class="rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition-all hover:bg-indigo-500 hover:shadow-xl hover:shadow-indigo-500/30 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
                 >
-                  Create Website
+                  <svg v-if="isCreating" class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  {{ isCreating ? 'Creating...' : 'Create Website' }}
                 </button>
               </template>
+              <!-- Edit mode -->
+              <template v-else-if="isEditing">
+                <button
+                  type="button"
+                  class="rounded-xl px-4 py-2.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-100"
+                  @click="cancelEditing"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  :disabled="isUpdating"
+                  class="rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition-all hover:bg-indigo-500 hover:shadow-xl hover:shadow-indigo-500/30 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+                >
+                  <svg v-if="isUpdating" class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  {{ isUpdating ? 'Saving...' : 'Save Changes' }}
+                </button>
+              </template>
+              <!-- View mode -->
               <div v-else class="flex items-center gap-2 text-sm text-gray-500">
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
                 </svg>
-                Editing is disabled to prevent downtime
+                Click Edit to modify website settings
               </div>
             </div>
           </form>
@@ -278,6 +313,18 @@
       :website="selectedWebsite"
       @close="isManageOpen = false"
     />
+
+    <!-- Delete Confirmation Modal -->
+    <ConfirmModal
+      :isOpen="isDeleteModalOpen"
+      type="danger"
+      title="Delete Website"
+      message="Are you sure? This will remove the Nginx configuration. This action cannot be undone."
+      confirmText="Delete"
+      :isLoading="deletingId !== null"
+      @confirm="deleteWebsite"
+      @cancel="isDeleteModalOpen = false"
+    />
   </div>
 </template>
 
@@ -287,11 +334,22 @@ import axios from 'axios'
 import PathInput from '../components/PathInput.vue'
 import SSLManager from '../components/SSLManager.vue'
 import ManageWebsiteModal from '../components/ManageWebsiteModal.vue'
+import ConfirmModal from '../components/ConfirmModal.vue'
+import { useToast } from '../composables/useToast'
+
+const toast = useToast()
 
 const websites = ref([])
 const nginxInfo = ref({ version: '', path: '' })
 const selectedWebsite = ref(null)
 const isManageOpen = ref(false)
+const isLoading = ref(false)
+const isCreating = ref(false)
+const isEditing = ref(false)
+const isUpdating = ref(false)
+const deletingId = ref(null)
+const isDeleteModalOpen = ref(false)
+const websiteToDelete = ref(null)
 const form = reactive({
     name: '',
     domain: '',
@@ -308,17 +366,21 @@ const fetchNginxInfo = async () => {
     }
 }
 
-const fetchWebsites = async () => {
+const fetchWebsites = async (showLoading = false) => {
+    if (showLoading) isLoading.value = true
     try {
         const response = await axios.get('/api/v1/websites/')
         websites.value = response.data
     } catch (e) {
         console.error("Failed to fetch websites", e)
+    } finally {
+        if (showLoading) isLoading.value = false
     }
 }
 
 const selectWebsite = (site) => {
     selectedWebsite.value = site
+    isEditing.value = false
     // Populate form
     form.name = site.name
     form.domain = site.domain
@@ -326,8 +388,24 @@ const selectWebsite = (site) => {
     form.project_path = site.project_path || '' // Handle missing path
 }
 
+const startEditing = () => {
+    isEditing.value = true
+}
+
+const cancelEditing = () => {
+    isEditing.value = false
+    // Reset form to current selected website values
+    if (selectedWebsite.value) {
+        form.name = selectedWebsite.value.name
+        form.domain = selectedWebsite.value.domain
+        form.port = selectedWebsite.value.port
+        form.project_path = selectedWebsite.value.project_path || ''
+    }
+}
+
 const resetForm = () => {
     selectedWebsite.value = null
+    isEditing.value = false
     form.name = ''
     form.domain = ''
     form.port = 3000
@@ -335,29 +413,69 @@ const resetForm = () => {
 }
 
 const handleSubmit = async () => {
+    if (isCreating.value) return
+    isCreating.value = true
     try {
         await axios.post('/api/v1/websites/', form)
+        toast.success('Website created successfully')
         resetForm()
         fetchWebsites()
     } catch (e) {
         console.error("Failed to create website", e)
-        alert("Failed to create website")
+        toast.error(e.response?.data?.detail || "Failed to create website")
+    } finally {
+        isCreating.value = false
     }
 }
 
-const deleteWebsite = async (id) => {
-    if(!confirm("Are you sure? This will remove Nginx config.")) return;
+const updateWebsite = async () => {
+    if (isUpdating.value || !selectedWebsite.value) return
+    isUpdating.value = true
     try {
-        await axios.delete(`/api/v1/websites/${id}`)
+        const updateData = {
+            name: form.name,
+            port: form.port,
+            project_path: form.project_path
+        }
+        const { data } = await axios.put(`/api/v1/websites/${selectedWebsite.value.id}`, updateData)
+        toast.success('Website updated successfully')
+        // Update selected website with new data
+        selectedWebsite.value = data
+        isEditing.value = false
+        fetchWebsites()
+    } catch (e) {
+        console.error("Failed to update website", e)
+        toast.error(e.response?.data?.detail || "Failed to update website")
+    } finally {
+        isUpdating.value = false
+    }
+}
+
+const confirmDelete = (id) => {
+    websiteToDelete.value = id
+    isDeleteModalOpen.value = true
+}
+
+const deleteWebsite = async () => {
+    if (!websiteToDelete.value || deletingId.value) return
+    deletingId.value = websiteToDelete.value
+    try {
+        await axios.delete(`/api/v1/websites/${websiteToDelete.value}`)
+        toast.success('Website deleted successfully')
+        isDeleteModalOpen.value = false
         resetForm()
         fetchWebsites()
     } catch (e) {
         console.error("Failed to delete website", e)
+        toast.error("Failed to delete website")
+    } finally {
+        deletingId.value = null
+        websiteToDelete.value = null
     }
 }
 
 onMounted(() => {
-    fetchWebsites()
+    fetchWebsites(true)
     fetchNginxInfo()
 })
 </script>

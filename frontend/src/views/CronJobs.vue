@@ -29,7 +29,10 @@
             <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 font-mono">{{ job.command }}</td>
             <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{{ job.comment_clean }}</td>
             <td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-              <button @click="deleteJob(job.id)" class="text-red-600 hover:text-red-900">Delete</button>
+              <button @click="confirmDelete(job.id)" :disabled="deletingId !== null" class="inline-flex items-center gap-1 text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed">
+                <svg v-if="deletingId === job.id" class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                {{ deletingId === job.id ? 'Deleting...' : 'Delete' }}
+              </button>
             </td>
           </tr>
           <tr v-if="jobs.length === 0">
@@ -74,8 +77,9 @@
               </div>
             </div>
             <div class="mt-5 sm:mt-6 sm:grid sm:grid-flow-row-dense sm:grid-cols-2 sm:gap-3">
-              <button @click="createJob" type="button" class="inline-flex w-full justify-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 sm:col-start-2">
-                Create
+              <button @click="createJob" :disabled="isCreating" type="button" class="inline-flex w-full items-center justify-center gap-2 rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 sm:col-start-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                <svg v-if="isCreating" class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                {{ isCreating ? 'Creating...' : 'Create' }}
               </button>
               <button @click="showModal = false" type="button" class="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:col-start-1 sm:mt-0">
                 Cancel
@@ -85,15 +89,35 @@
         </div>
       </div>
     </div>
+
+    <!-- Delete Confirmation Modal -->
+    <ConfirmModal
+      :isOpen="isDeleteModalOpen"
+      type="danger"
+      title="Delete Cron Job"
+      message="Are you sure you want to delete this cron job? This action cannot be undone."
+      confirmText="Delete"
+      :isLoading="deletingId !== null"
+      @confirm="deleteJob"
+      @cancel="isDeleteModalOpen = false"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import UserSelect from '../components/UserSelect.vue'
+import ConfirmModal from '../components/ConfirmModal.vue'
+import { useToast } from '../composables/useToast'
+
+const toast = useToast()
 
 const jobs = ref([])
 const showModal = ref(false)
+const isCreating = ref(false)
+const deletingId = ref(null)
+const isDeleteModalOpen = ref(false)
+const jobToDelete = ref(null)
 const newJob = ref({
   schedule: '',
   command: '',
@@ -133,6 +157,8 @@ const openAddModal = () => {
 }
 
 const createJob = async () => {
+    if (isCreating.value) return
+    isCreating.value = true
     try {
         const token = localStorage.getItem('token')
         const res = await fetch('/api/v1/cron/', {
@@ -144,33 +170,48 @@ const createJob = async () => {
             body: JSON.stringify(newJob.value)
         })
         if (res.ok) {
+            toast.success('Cron job created successfully')
             showModal.value = false
             fetchJobs()
         } else {
             const err = await res.json()
-            alert('Error: ' + err.detail)
+            toast.error(err.detail || 'Failed to create cron job')
         }
     } catch (e) {
         console.error(e)
+        toast.error('Failed to create cron job')
+    } finally {
+        isCreating.value = false
     }
 }
 
-const deleteJob = async (id) => {
-    if (!confirm('Are you sure you want to delete this cron job?')) return
+const confirmDelete = (id) => {
+    jobToDelete.value = id
+    isDeleteModalOpen.value = true
+}
 
+const deleteJob = async () => {
+    if (!jobToDelete.value || deletingId.value) return
+    deletingId.value = jobToDelete.value
     try {
         const token = localStorage.getItem('token')
-        const res = await fetch(`/api/v1/cron/${id}`, {
+        const res = await fetch(`/api/v1/cron/${jobToDelete.value}`, {
             method: 'DELETE',
             headers: {
                 'Authorization': `Bearer ${token}`
             }
         })
         if (res.ok) {
+            toast.success('Cron job deleted successfully')
+            isDeleteModalOpen.value = false
             fetchJobs()
         }
     } catch (e) {
         console.error(e)
+        toast.error('Failed to delete cron job')
+    } finally {
+        deletingId.value = null
+        jobToDelete.value = null
     }
 }
 

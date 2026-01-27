@@ -88,7 +88,10 @@
                             <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{{ db.owner }}</td>
                             <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{{ db.size }}</td>
                             <td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                                <button @click="deleteDatabase(db.name)" class="text-red-600 hover:text-red-900">Delete</button>
+                                <button @click="confirmDeleteDatabase(db.name)" :disabled="deletingDbName !== null" class="inline-flex items-center gap-1 text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed">
+                                  <svg v-if="deletingDbName === db.name" class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                  {{ deletingDbName === db.name ? 'Deleting...' : 'Delete' }}
+                                </button>
                             </td>
                         </tr>
                         <tr v-if="databases.length === 0">
@@ -133,7 +136,10 @@
                             </td>
                             <td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
                                 <button @click="openChangePasswordModal(user)" class="text-indigo-600 hover:text-indigo-900 mr-4">Password</button>
-                                <button v-if="user.name !== 'postgres'" @click="deleteUser(user.name)" class="text-red-600 hover:text-red-900">Delete</button>
+                                <button v-if="user.name !== 'postgres'" @click="confirmDeleteUser(user.name)" :disabled="deletingUserName !== null" class="inline-flex items-center gap-1 text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed">
+                                  <svg v-if="deletingUserName === user.name" class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                  {{ deletingUserName === user.name ? 'Deleting...' : 'Delete' }}
+                                </button>
                             </td>
                         </tr>
                     </tbody>
@@ -152,13 +158,17 @@
                   </div>
                   <div class="mt-5">
                     <button
-                        @click="toggleRemoteAccess"
+                        @click="confirmToggleRemoteAccess"
                         type="button"
-                        :class="[status.remote_access ? 'bg-indigo-600' : 'bg-gray-200', 'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2']"
+                        :disabled="isTogglingRemote"
+                        :class="[status.remote_access ? 'bg-indigo-600' : 'bg-gray-200', 'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed']"
                         role="switch"
                         :aria-checked="status.remote_access"
                     >
-                        <span aria-hidden="true" :class="[status.remote_access ? 'translate-x-5' : 'translate-x-0', 'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out']"></span>
+                        <span v-if="isTogglingRemote" class="absolute inset-0 flex items-center justify-center">
+                          <svg class="h-4 w-4 animate-spin text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                        </span>
+                        <span v-else aria-hidden="true" :class="[status.remote_access ? 'translate-x-5' : 'translate-x-0', 'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out']"></span>
                     </button>
                     <span class="ml-3 text-sm font-medium text-gray-900" v-if="status.remote_access">Enabled (Publicly Accessible)</span>
                     <span class="ml-3 text-sm font-medium text-gray-500" v-else>Disabled (Localhost Only)</span>
@@ -204,7 +214,10 @@
              </div>
              <div class="mt-5 flex justify-end gap-3">
                  <button type="button" @click="isCreateDbOpen = false" class="rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">Cancel</button>
-                 <button type="submit" class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">Create</button>
+                 <button type="submit" :disabled="isCreatingDb" class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                   <svg v-if="isCreatingDb" class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                   {{ isCreatingDb ? 'Creating...' : 'Create' }}
+                 </button>
              </div>
         </form>
     </BaseModal>
@@ -232,7 +245,10 @@
              </div>
              <div class="mt-5 flex justify-end gap-3">
                  <button type="button" @click="isCreateUserOpen = false" class="rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">Cancel</button>
-                 <button type="submit" class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">Create</button>
+                 <button type="submit" :disabled="isCreatingUser" class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                   <svg v-if="isCreatingUser" class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                   {{ isCreatingUser ? 'Creating...' : 'Create' }}
+                 </button>
              </div>
         </form>
     </BaseModal>
@@ -246,10 +262,49 @@
              </div>
              <div class="mt-5 flex justify-end gap-3">
                  <button type="button" @click="isPassOpen = false" class="rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">Cancel</button>
-                 <button type="submit" class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">Update</button>
+                 <button type="submit" :disabled="isChangingPassword" class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                   <svg v-if="isChangingPassword" class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                   {{ isChangingPassword ? 'Updating...' : 'Update' }}
+                 </button>
              </div>
         </form>
     </BaseModal>
+
+    <!-- Delete Database Confirmation Modal -->
+    <ConfirmModal
+      :isOpen="isDeleteDbModalOpen"
+      type="danger"
+      title="Delete Database"
+      :message="`Are you sure you want to delete database '${dbToDelete}'? This cannot be undone.`"
+      confirmText="Delete"
+      :isLoading="deletingDbName !== null"
+      @confirm="deleteDatabase"
+      @cancel="isDeleteDbModalOpen = false"
+    />
+
+    <!-- Delete User Confirmation Modal -->
+    <ConfirmModal
+      :isOpen="isDeleteUserModalOpen"
+      type="danger"
+      title="Delete User"
+      :message="`Are you sure you want to delete user '${userToDelete}'?`"
+      confirmText="Delete"
+      :isLoading="deletingUserName !== null"
+      @confirm="deleteUser"
+      @cancel="isDeleteUserModalOpen = false"
+    />
+
+    <!-- Remote Access Confirmation Modal -->
+    <ConfirmModal
+      :isOpen="isRemoteAccessModalOpen"
+      type="warning"
+      title="Enable Remote Access"
+      message="Warning: Enabling remote access will expose your database to the internet. Password authentication will be enforced. Are you sure?"
+      confirmText="Enable"
+      :isLoading="isTogglingRemote"
+      @confirm="toggleRemoteAccess"
+      @cancel="isRemoteAccessModalOpen = false"
+    />
 
   </div>
 </template>
@@ -258,6 +313,10 @@
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
 import BaseModal from '../components/BaseModal.vue'
+import ConfirmModal from '../components/ConfirmModal.vue'
+import { useToast } from '../composables/useToast'
+
+const toast = useToast()
 
 const tabs = [
     { name: 'Databases' },
@@ -280,8 +339,23 @@ const createDbForm = ref({ name: '', owner: 'postgres' })
 const isCreateUserOpen = ref(false)
 const createUserForm = ref({ name: '', password: '', superuser: false, createdb: false })
 
+// Confirmation modals
+const isDeleteDbModalOpen = ref(false)
+const isDeleteUserModalOpen = ref(false)
+const isRemoteAccessModalOpen = ref(false)
+const dbToDelete = ref(null)
+const userToDelete = ref(null)
+
 const isPassOpen = ref(false)
 const passForm = ref({ name: '', password: '' })
+
+// Loading states
+const isCreatingDb = ref(false)
+const isCreatingUser = ref(false)
+const isChangingPassword = ref(false)
+const deletingDbName = ref(null)
+const deletingUserName = ref(null)
+const isTogglingRemote = ref(false)
 
 // Actions
 const fetchStatus = async () => {
@@ -304,8 +378,9 @@ const installService = async () => {
     try {
         await axios.post('/api/v1/postgres/install')
         await fetchStatus()
+        toast.success('PostgreSQL installed successfully')
     } catch (e) {
-        alert("Installation failed: " + (e.response?.data?.detail || e.message))
+        toast.error(e.response?.data?.detail || e.message || "Installation failed")
     } finally {
         installing.value = false
     }
@@ -330,44 +405,76 @@ const fetchUsers = async () => {
 }
 
 const createDatabase = async () => {
+    if (isCreatingDb.value) return
+    isCreatingDb.value = true
     try {
         await axios.post('/api/v1/postgres/databases', createDbForm.value)
+        toast.success('Database created successfully')
         isCreateDbOpen.value = false
         createDbForm.value.name = '' // keep owner
         fetchDatabases()
     } catch (e) {
-        alert("Failed to create database: " + (e.response?.data?.detail || e.message))
+        toast.error(e.response?.data?.detail || e.message || "Failed to create database")
+    } finally {
+        isCreatingDb.value = false
     }
 }
 
-const deleteDatabase = async (name) => {
-    if (!confirm(`Are you sure you want to delete database '${name}'? This cannot be undone.`)) return
+const confirmDeleteDatabase = (name) => {
+    dbToDelete.value = name
+    isDeleteDbModalOpen.value = true
+}
+
+const deleteDatabase = async () => {
+    if (!dbToDelete.value || deletingDbName.value) return
+    deletingDbName.value = dbToDelete.value
     try {
-        await axios.delete(`/api/v1/postgres/databases/${name}`)
+        await axios.delete(`/api/v1/postgres/databases/${dbToDelete.value}`)
+        toast.success('Database deleted successfully')
+        isDeleteDbModalOpen.value = false
         fetchDatabases()
     } catch (e) {
-        alert("Failed to delete database: " + (e.response?.data?.detail || e.message))
+        toast.error(e.response?.data?.detail || e.message || "Failed to delete database")
+    } finally {
+        deletingDbName.value = null
+        dbToDelete.value = null
     }
 }
 
 const createUser = async () => {
+    if (isCreatingUser.value) return
+    isCreatingUser.value = true
     try {
         await axios.post('/api/v1/postgres/users', createUserForm.value)
+        toast.success('User created successfully')
         isCreateUserOpen.value = false
         createUserForm.value = { name: '', password: '', superuser: false, createdb: false }
         fetchUsers()
     } catch (e) {
-         alert("Failed to create user: " + (e.response?.data?.detail || e.message))
+         toast.error(e.response?.data?.detail || e.message || "Failed to create user")
+    } finally {
+        isCreatingUser.value = false
     }
 }
 
-const deleteUser = async (name) => {
-    if (!confirm(`Are you sure you want to delete user '${name}'?`)) return
+const confirmDeleteUser = (name) => {
+    userToDelete.value = name
+    isDeleteUserModalOpen.value = true
+}
+
+const deleteUser = async () => {
+    if (!userToDelete.value || deletingUserName.value) return
+    deletingUserName.value = userToDelete.value
     try {
-        await axios.delete(`/api/v1/postgres/users/${name}`)
+        await axios.delete(`/api/v1/postgres/users/${userToDelete.value}`)
+        toast.success('User deleted successfully')
+        isDeleteUserModalOpen.value = false
         fetchUsers()
     } catch (e) {
-        alert("Failed to delete user: " + (e.response?.data?.detail || e.message))
+        toast.error(e.response?.data?.detail || e.message || "Failed to delete user")
+    } finally {
+        deletingUserName.value = null
+        userToDelete.value = null
     }
 }
 
@@ -378,25 +485,40 @@ const openChangePasswordModal = (user) => {
 }
 
 const changePassword = async () => {
+    if (isChangingPassword.value) return
+    isChangingPassword.value = true
     try {
         await axios.put(`/api/v1/postgres/users/${passForm.value.name}/password`, { password: passForm.value.password })
         isPassOpen.value = false
-        alert("Password updated successfully")
+        toast.success("Password updated successfully")
     } catch (e) {
-         alert("Failed to update password: " + (e.response?.data?.detail || e.message))
+         toast.error(e.response?.data?.detail || e.message || "Failed to update password")
+    } finally {
+        isChangingPassword.value = false
+    }
+}
+
+const confirmToggleRemoteAccess = () => {
+    if (!status.value.remote_access) {
+        isRemoteAccessModalOpen.value = true
+    } else {
+        toggleRemoteAccess()
     }
 }
 
 const toggleRemoteAccess = async () => {
     const newState = !status.value.remote_access
-    if (newState && !confirm("Warning: Enabling remote access will expose your database to the internet. Password authentication will be enforced. Are you sure?")) return
-
+    if (isTogglingRemote.value) return
+    isTogglingRemote.value = true
     try {
         await axios.post('/api/v1/postgres/remote-access', { enable: newState })
         await fetchStatus() // Refresh
-        alert(`Remote access ${newState ? 'enabled' : 'disabled'}. Service restarted.`)
+        isRemoteAccessModalOpen.value = false
+        toast.success(`Remote access ${newState ? 'enabled' : 'disabled'}. Service restarted.`)
     } catch (e) {
-        alert("Failed to toggle remote access: " + (e.response?.data?.detail || e.message))
+        toast.error(e.response?.data?.detail || e.message || "Failed to toggle remote access")
+    } finally {
+        isTogglingRemote.value = false
     }
 }
 

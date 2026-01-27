@@ -144,32 +144,38 @@
           <button
             v-if="process.statename === 'STOPPED' || process.statename === 'FATAL'"
             @click="controlProcess(process.name, 'start')"
-            class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-100"
+            :disabled="controllingProcess !== null"
+            class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <svg v-if="controllingProcess === `${process.name}:start`" class="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            <svg v-else class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
             </svg>
-            Start
+            {{ controllingProcess === `${process.name}:start` ? 'Starting...' : 'Start' }}
           </button>
           <button
             v-if="process.statename === 'RUNNING'"
             @click="controlProcess(process.name, 'stop')"
-            class="inline-flex items-center gap-1.5 rounded-lg bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 transition-colors hover:bg-red-100"
+            :disabled="controllingProcess !== null"
+            class="inline-flex items-center gap-1.5 rounded-lg bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 transition-colors hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <svg v-if="controllingProcess === `${process.name}:stop`" class="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            <svg v-else class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 7.5A2.25 2.25 0 017.5 5.25h9a2.25 2.25 0 012.25 2.25v9a2.25 2.25 0 01-2.25 2.25h-9a2.25 2.25 0 01-2.25-2.25v-9z" />
             </svg>
-            Stop
+            {{ controllingProcess === `${process.name}:stop` ? 'Stopping...' : 'Stop' }}
           </button>
           <button
             v-if="process.statename === 'RUNNING'"
             @click="controlProcess(process.name, 'restart')"
-            class="inline-flex items-center gap-1.5 rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-100"
+            :disabled="controllingProcess !== null"
+            class="inline-flex items-center gap-1.5 rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <svg v-if="controllingProcess === `${process.name}:restart`" class="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            <svg v-else class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
             </svg>
-            Restart
+            {{ controllingProcess === `${process.name}:restart` ? 'Restarting...' : 'Restart' }}
           </button>
           <button
             @click="goToDetail(process.name)"
@@ -316,9 +322,11 @@ port = 127.0.0.1:9001</pre>
           </button>
           <button
             type="submit"
-            class="flex-1 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-500/25 transition-all hover:bg-violet-500"
+            :disabled="isCreating"
+            class="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-500/25 transition-all hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Create Service
+            <svg v-if="isCreating" class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            {{ isCreating ? 'Creating...' : 'Create Service' }}
           </button>
         </div>
       </form>
@@ -333,12 +341,20 @@ import axios from 'axios'
 import BaseModal from '../components/BaseModal.vue'
 import PathInput from '../components/PathInput.vue'
 import UserSelect from '../components/UserSelect.vue'
+import { useToast } from '../composables/useToast'
+
+const toast = useToast()
 
 const processes = ref([])
 const supervisorStatus = ref({ running: false, state: 'UNKNOWN', version: null, error: null })
 const showHelp = ref(false)
 const isCreateModalOpen = ref(false)
 const router = useRouter()
+
+// Loading states
+const isLoading = ref(false)
+const isCreating = ref(false)
+const controllingProcess = ref(null) // 'name:action' format
 
 const createForm = reactive({
     name: '',
@@ -373,6 +389,9 @@ const fetchProcesses = async () => {
 }
 
 const controlProcess = async (name, action) => {
+    const key = `${name}:${action}`
+    if (controllingProcess.value) return
+    controllingProcess.value = key
     try {
         await axios.post(`/api/v1/supervisor/processes/${name}/${action}`)
         // Wait a bit for process state to change
@@ -380,7 +399,9 @@ const controlProcess = async (name, action) => {
     } catch (e) {
         console.error(`Failed to ${action} process`, e)
         const msg = e.response?.data?.detail || e.message || 'Unknown error'
-        alert(`Failed to ${action} process: ${msg}`)
+        toast.error(`Failed to ${action} process: ${msg}`)
+    } finally {
+        controllingProcess.value = null
     }
 }
 
@@ -400,14 +421,19 @@ const openCreateModal = () => {
 }
 
 const createProcess = async () => {
+    if (isCreating.value) return
+    isCreating.value = true
     try {
         await axios.post('/api/v1/supervisor/processes', createForm)
         isCreateModalOpen.value = false
+        toast.success('Process created successfully')
         // Refresh list
         setTimeout(fetchProcesses, 1000)
     } catch (e) {
         console.error("Failed to create process", e)
-        alert("Failed to create process: " + (e.response?.data?.detail || e.message))
+        toast.error("Failed to create process: " + (e.response?.data?.detail || e.message))
+    } finally {
+        isCreating.value = false
     }
 }
 

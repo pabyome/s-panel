@@ -8,6 +8,20 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isAuthenticated = computed(() => !!token.value);
 
+  async function fetchCurrentUser() {
+    try {
+      const response = await axios.get('/api/v1/auth/me');
+      user.value = response.data;
+      localStorage.setItem('user', JSON.stringify(user.value));
+    } catch (error) {
+      console.error('Failed to fetch user:', error);
+      // If we can't fetch user, token might be invalid
+      if (error.response?.status === 401) {
+        logout();
+      }
+    }
+  }
+
   async function login(username, password) {
     try {
       const formData = new FormData();
@@ -18,13 +32,12 @@ export const useAuthStore = defineStore('auth', () => {
       const { access_token, token_type } = response.data;
 
       token.value = access_token;
-      // For now, simpler user object. In real app, might decode JWT or fetch /me
-      user.value = { username };
-
-      localStorage.setItem('token', access_token);
-      localStorage.setItem('user', JSON.stringify(user.value));
-
       axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
+      localStorage.setItem('token', access_token);
+
+      // Fetch full user details from /me endpoint
+      await fetchCurrentUser();
+
       return true;
     } catch (error) {
       console.error('Login failed:', error);
@@ -42,8 +55,10 @@ export const useAuthStore = defineStore('auth', () => {
 
   // Initialize axios header if token exists
   if (token.value) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token.value}`;
+    axios.defaults.headers.common['Authorization'] = `Bearer ${token.value}`;
+    // Fetch fresh user data on app init if we have a token
+    fetchCurrentUser();
   }
 
-  return { token, user, isAuthenticated, login, logout };
+  return { token, user, isAuthenticated, login, logout, fetchCurrentUser };
 });

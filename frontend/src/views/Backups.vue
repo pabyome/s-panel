@@ -59,16 +59,20 @@
             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
               <div class="flex items-center justify-end gap-3">
                 <button
-                  @click="restoreBackup(backup)"
-                  class="text-indigo-600 hover:text-indigo-900 font-medium"
+                  @click="confirmRestore(backup)"
+                  :disabled="restoringFilename !== null || deletingFilename !== null"
+                  class="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-900 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Restore
+                  <svg v-if="restoringFilename === backup.filename" class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                  {{ restoringFilename === backup.filename ? 'Restoring...' : 'Restore' }}
                 </button>
                 <button
-                  @click="deleteBackup(backup)"
-                  class="text-red-600 hover:text-red-900 font-medium"
+                  @click="confirmDelete(backup)"
+                  :disabled="deletingFilename !== null || restoringFilename !== null"
+                  class="inline-flex items-center gap-1 text-red-600 hover:text-red-900 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Delete
+                  <svg v-if="deletingFilename === backup.filename" class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                  {{ deletingFilename === backup.filename ? 'Deleting...' : 'Delete' }}
                 </button>
               </div>
             </td>
@@ -76,15 +80,49 @@
         </tbody>
       </table>
     </div>
+
+    <!-- Delete Confirmation Modal -->
+    <ConfirmModal
+      :isOpen="isDeleteModalOpen"
+      type="danger"
+      title="Delete Backup"
+      :message="`Are you sure you want to delete ${backupToDelete?.filename}?`"
+      confirmText="Delete"
+      :isLoading="deletingFilename !== null"
+      @confirm="deleteBackup"
+      @cancel="isDeleteModalOpen = false"
+    />
+
+    <!-- Restore Confirmation Modal -->
+    <ConfirmModal
+      :isOpen="isRestoreModalOpen"
+      type="warning"
+      title="Restore Backup"
+      :message="`WARNING: This will overwrite the current database with ${backupToRestore?.filename}. Are you sure?`"
+      confirmText="Restore"
+      :isLoading="restoringFilename !== null"
+      @confirm="restoreBackup"
+      @cancel="isRestoreModalOpen = false"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
+import ConfirmModal from '../components/ConfirmModal.vue'
+import { useToast } from '../composables/useToast'
+
+const toast = useToast()
 
 const backups = ref([])
 const creating = ref(false)
+const deletingFilename = ref(null)
+const restoringFilename = ref(null)
+const isDeleteModalOpen = ref(false)
+const isRestoreModalOpen = ref(false)
+const backupToDelete = ref(null)
+const backupToRestore = ref(null)
 
 const formatBytes = (bytes, decimals = 2) => {
     if (!+bytes) return '0 Bytes'
@@ -108,35 +146,58 @@ const createBackup = async () => {
     creating.value = true
     try {
         await axios.post('/api/v1/backups/')
+        toast.success('Backup created successfully')
         fetchBackups()
     } catch (e) {
-        alert("Failed to create backup")
+        toast.error("Failed to create backup")
         console.error(e)
     } finally {
         creating.value = false
     }
 }
 
-const deleteBackup = async (backup) => {
-    if (!confirm(`Are you sure you want to delete ${backup.filename}?`)) return
+const confirmDelete = (backup) => {
+    backupToDelete.value = backup
+    isDeleteModalOpen.value = true
+}
+
+const deleteBackup = async () => {
+    if (!backupToDelete.value || deletingFilename.value) return
+    deletingFilename.value = backupToDelete.value.filename
     try {
-        await axios.delete(`/api/v1/backups/${backup.filename}`)
+        await axios.delete(`/api/v1/backups/${backupToDelete.value.filename}`)
+        toast.success('Backup deleted successfully')
+        isDeleteModalOpen.value = false
         fetchBackups()
     } catch (e) {
         console.error("Failed to delete backup", e)
+        toast.error("Failed to delete backup")
+    } finally {
+        deletingFilename.value = null
+        backupToDelete.value = null
     }
 }
 
-const restoreBackup = async (backup) => {
-    if (!confirm(`WARNING: This will overwrite the current database with ${backup.filename}. Are you sure?`)) return
+const confirmRestore = (backup) => {
+    backupToRestore.value = backup
+    isRestoreModalOpen.value = true
+}
+
+const restoreBackup = async () => {
+    if (!backupToRestore.value || restoringFilename.value) return
+    restoringFilename.value = backupToRestore.value.filename
     try {
-        await axios.post(`/api/v1/backups/${backup.filename}/restore`)
-        alert("Restore successful. The service may need to be restarted.")
+        await axios.post(`/api/v1/backups/${backupToRestore.value.filename}/restore`)
+        toast.success("Restore successful. The service may need to be restarted.")
+        isRestoreModalOpen.value = false
         // Ideally, force logout or reload
-        window.location.reload()
+        setTimeout(() => window.location.reload(), 1500)
     } catch (e) {
         console.error("Failed to restore backup", e)
-        alert("Restore failed")
+        toast.error("Restore failed")
+    } finally {
+        restoringFilename.value = null
+        backupToRestore.value = null
     }
 }
 

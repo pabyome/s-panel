@@ -18,6 +18,7 @@
             <li v-for="item in navigation" :key="item.name">
               <router-link
                 :to="item.href"
+                @click="$emit('navigate')"
                 :class="[
                     item.current
                     ? 'bg-indigo-600 text-white shadow-md shadow-indigo-900/20'
@@ -41,17 +42,17 @@
 
         <!-- Bottom Section -->
         <li class="mt-auto">
-          <router-link to="/settings" class="group -mx-2 flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors">
+          <router-link to="/settings" @click="$emit('navigate')" class="group -mx-2 flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors">
             <Cog6ToothIcon class="h-5 w-5 shrink-0 text-slate-500 group-hover:text-white" aria-hidden="true" />
             Settings
           </router-link>
           <div class="mt-4 border-t border-slate-800 pt-4 flex items-center gap-x-3">
               <div class="h-8 w-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-[10px] text-white font-bold shadow-sm">
-                  AD
+                  {{ userInitials }}
               </div>
               <div class="flex flex-col">
-                  <span class="text-sm font-medium text-white leading-tight">Admin User</span>
-                  <span class="text-[10px] text-slate-500 leading-tight">System Administrator</span>
+                  <span class="text-sm font-medium text-white leading-tight">{{ displayName }}</span>
+                  <span class="text-[10px] text-slate-500 leading-tight">{{ userRole }}</span>
               </div>
           </div>
         </li>
@@ -73,12 +74,31 @@ import {
   ArchiveBoxIcon,
   DocumentTextIcon,
   TableCellsIcon,
-  ChartBarIcon
+  ChartBarIcon,
+  UsersIcon
 } from '@heroicons/vue/24/outline'
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
+
+defineEmits(['navigate'])
 
 const route = useRoute()
+const authStore = useAuthStore()
+
+const userInitials = computed(() => {
+  if (!authStore.user?.username) return 'AD'
+  return authStore.user.username.substring(0, 2).toUpperCase()
+})
+
+const displayName = computed(() => {
+  return authStore.user?.username || 'Admin User'
+})
+
+const userRole = computed(() => {
+  if (!authStore.user?.role) return 'User'
+  return authStore.user.role === 'admin' ? 'System Administrator' : 'User'
+})
 
 const navigation = computed(() => [
   { name: 'Dashboard', href: '/', icon: HomeIcon, current: route.path === '/' },
@@ -92,5 +112,6 @@ const navigation = computed(() => [
   { name: 'Backups', href: '/backups', icon: ArchiveBoxIcon, current: route.path.startsWith('/backups') },
   { name: 'Monitor', href: '/monitor', icon: ChartBarIcon, current: route.path.startsWith('/monitor') },
   { name: 'Logs', href: '/logs', icon: DocumentTextIcon, current: route.path.startsWith('/logs') },
+  { name: 'Users', href: '/users', icon: UsersIcon, current: route.path.startsWith('/users') },
 ])
 </script>
