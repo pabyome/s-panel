@@ -17,7 +17,7 @@ fi
 # 1. Update and Install System Dependencies
 echo -e "${GREEN}[1/5] Installing System Dependencies...${NC}"
 apt update
-apt install -y python3 python3-pip python3-venv git unzip curl gnupg ufw supervisor nginx
+apt install -y python3 python3-venv git unzip curl gnupg ufw supervisor nginx
 
 # 2. Install Node.js 20.x
 if ! command -v node &> /dev/null; then
