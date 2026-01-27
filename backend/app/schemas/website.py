@@ -12,11 +12,10 @@ class WebsiteCreate(SQLModel):
     @field_validator("domain")
     @classmethod
     def validate_domain(cls, v: str) -> str:
-        # Simple regex for hostname (subdomains allowed, no paths, no schemes)
-        # e.g., example.com, sub.example.co.uk, localhost
-        hostname_regex = r"^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$"
+        # Relaxed regex: Allow underscores for internal/dev domains
+        hostname_regex = r"^(([a-zA-Z0-9_]|[a-zA-Z0-9_][a-zA-Z0-9\-_]*[a-zA-Z0-9_])\.)*([A-Za-z0-9_]|[A-Za-z0-9_][A-Za-z0-9\-_]*[A-Za-z0-9_])$"
         if not re.match(hostname_regex, v):
-            raise ValueError("Invalid domain format. Use format like 'example.com' or 'sub.domain.com'")
+            raise ValueError("Invalid domain format. Use format like 'example.com', 'sub.domain.com', or 'staging_site.local'. Underscores are allowed.")
         return v
 
     @field_validator("port")
