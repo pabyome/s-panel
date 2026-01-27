@@ -19,6 +19,10 @@ echo -e "${GREEN}[1/6] Installing System Dependencies...${NC}"
 apt update
 apt install -y python3 python3-venv git unzip curl gnupg ufw supervisor nginx
 
+# Ensure supervisor log directory exists (common failure point)
+mkdir -p /var/log/supervisor
+
+
 # 1b. Setup 'www' user and directory
 echo -e "${GREEN}[1b/6] Setting up 'www' user and directory...${NC}"
 if ! id "www" &>/dev/null; then

@@ -379,7 +379,8 @@ const controlProcess = async (name, action) => {
         setTimeout(fetchProcesses, 500)
     } catch (e) {
         console.error(`Failed to ${action} process`, e)
-        alert(`Failed to ${action} process`)
+        const msg = e.response?.data?.detail || e.message || 'Unknown error'
+        alert(`Failed to ${action} process: ${msg}`)
     }
 }
 
