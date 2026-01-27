@@ -1,6 +1,6 @@
 from sqlmodel import Session, select
 from typing import List, Optional
-from app.models.database import Website
+from app.models.website import Website
 from app.schemas.website import WebsiteCreate
 from app.services.nginx_manager import NginxManager
 

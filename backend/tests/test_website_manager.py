@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 from sqlmodel import Session, SQLModel, create_engine
 from app.services.website_manager import WebsiteManager
 from app.schemas.website import WebsiteCreate
-from app.models.database import Website
+from app.models.website import Website
 
 # Use in-memory SQLite for tests
 @pytest.fixture(name="session")
