@@ -7,11 +7,13 @@ class CronJob(BaseModel):
     schedule: str
     comment: Optional[str] = None
     enabled: bool = True
+    user: Optional[str] = "root"
 
 class CronJobCreate(BaseModel):
     command: str
     schedule: str # "* * * * *"
     comment: Optional[str] = None
+    user: Optional[str] = "root"
 
 class CronJobUpdate(BaseModel):
     command: Optional[str] = None

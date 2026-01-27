@@ -90,6 +90,8 @@
               <p class="text-xs text-gray-500">
                 <span class="font-mono">{{ deploy.branch }}</span>
                 <span class="mx-1">·</span>
+                <span>User: {{ deploy.run_as_user || 'root' }}</span>
+                <span class="mx-1">·</span>
                 <span v-if="deploy.deploy_count">{{ deploy.deploy_count }} deploys</span>
                 <span v-else>No deploys yet</span>
               </p>
@@ -331,15 +333,20 @@
             >
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Supervisor Process</label>
-            <select
-              v-model="editForm.supervisor_process"
-              class="block w-full rounded-xl border-0 py-2.5 px-4 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-violet-500 sm:text-sm"
-            >
-              <option value="">None (optional)</option>
-              <option v-for="proc in processes" :key="proc.name" :value="proc.name">{{ proc.name }}</option>
-            </select>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Run As User</label>
+            <UserSelect v-model="editForm.run_as_user" />
           </div>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Supervisor Process</label>
+          <select
+            v-model="editForm.supervisor_process"
+            class="block w-full rounded-xl border-0 py-2.5 px-4 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-violet-500 sm:text-sm"
+          >
+            <option value="">None (optional)</option>
+            <option v-for="proc in processes" :key="proc.name" :value="proc.name">{{ proc.name }}</option>
+          </select>
         </div>
 
         <div>
@@ -400,7 +407,13 @@
             >
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Supervisor Process</label>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Run As User</label>
+            <UserSelect v-model="form.run_as_user" />
+          </div>
+        </div>
+
+        <div>
+           <label class="block text-sm font-medium text-gray-700 mb-2">Supervisor Process</label>
             <select
               v-model="form.supervisor_process"
               class="block w-full rounded-xl border-0 py-2.5 px-4 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-violet-500 sm:text-sm"
@@ -408,7 +421,6 @@
               <option value="">None (optional)</option>
               <option v-for="proc in processes" :key="proc.name" :value="proc.name">{{ proc.name }}</option>
             </select>
-          </div>
         </div>
 
         <div>
@@ -447,6 +459,7 @@ import { ref, onMounted, reactive, computed } from 'vue'
 import axios from 'axios'
 import BaseModal from '../components/BaseModal.vue'
 import PathInput from '../components/PathInput.vue'
+import UserSelect from '../components/UserSelect.vue'
 
 const deployments = ref([])
 const processes = ref([])
@@ -463,7 +476,8 @@ const form = reactive({
     project_path: '',
     branch: 'main',
     supervisor_process: '',
-    post_deploy_command: ''
+    post_deploy_command: '',
+    run_as_user: 'root'
 })
 
 const editForm = reactive({
@@ -471,7 +485,8 @@ const editForm = reactive({
     project_path: '',
     branch: 'main',
     supervisor_process: '',
-    post_deploy_command: ''
+    post_deploy_command: '',
+    run_as_user: 'root'
 })
 
 const totalDeploys = computed(() => {
@@ -502,6 +517,7 @@ const openModal = () => {
     form.branch = 'main'
     form.supervisor_process = ''
     form.post_deploy_command = ''
+    form.run_as_user = 'root'
     fetchProcesses()
     isModalOpen.value = true
 }
@@ -511,7 +527,8 @@ const createDeployment = async () => {
         await axios.post('/api/v1/deployments/', {
             ...form,
             supervisor_process: form.supervisor_process || null,
-            post_deploy_command: form.post_deploy_command || null
+            post_deploy_command: form.post_deploy_command || null,
+            run_as_user: form.run_as_user || 'root'
         })
         isModalOpen.value = false
         fetchDeployments()
@@ -527,6 +544,7 @@ const openEditModal = (deploy) => {
     editForm.branch = deploy.branch
     editForm.supervisor_process = deploy.supervisor_process || ''
     editForm.post_deploy_command = deploy.post_deploy_command || ''
+    editForm.run_as_user = deploy.run_as_user || 'root'
     fetchProcesses()
     isEditModalOpen.value = true
 }
@@ -536,7 +554,8 @@ const updateDeployment = async () => {
         await axios.put(`/api/v1/deployments/${editingDeployId.value}`, {
             ...editForm,
             supervisor_process: editForm.supervisor_process || null,
-            post_deploy_command: editForm.post_deploy_command || null
+            post_deploy_command: editForm.post_deploy_command || null,
+            run_as_user: editForm.run_as_user || 'root'
         })
         isEditModalOpen.value = false
         fetchDeployments()

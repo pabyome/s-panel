@@ -105,13 +105,14 @@ class GitService:
         return None
 
     @staticmethod
-    def pull_and_deploy(project_path: str, branch: str, post_command: str = None) -> Tuple[bool, str, Optional[str]]:
+    def pull_and_deploy(project_path: str, branch: str, post_command: str = None, run_as_user: str = "root") -> Tuple[bool, str, Optional[str]]:
         """
         Pull latest code and run post-deploy commands.
         Returns: (success, logs, commit_hash)
         """
         logs = []
         commit_hash = None
+        run_as_user = run_as_user or "root" # Ensure not None
 
         # 0. Validate post_command security
         if post_command:
@@ -127,11 +128,25 @@ class GitService:
         logs.append(f"╔══════════════════════════════════════════════════════════╗")
         logs.append(f"║  Deploying: {project_path}")
         logs.append(f"║  Branch: {branch}")
+        logs.append(f"║  User: {run_as_user}")
         logs.append(f"╚══════════════════════════════════════════════════════════╝")
         logs.append("")
         logs.append("▶ Step 1: Fetching and pulling latest changes...")
         logs.append(f"  $ git pull origin {branch}")
         logs.append("")
+
+        # Git pull often needs to be run as the owner of the repo?
+        # Or root can do it if permissions allow.
+        # Ideally, we should run git pull as the user too?
+        # Assuming permissions are correct (775), root can pull.
+        # Or we should run git pull as the user too.
+        # Let's run GIT commands as the user too for safety/permissions consistency.
+
+        # Original code ran simple subprocess, which runs as root (backend user).
+        # Let's wrap git pull in sudo too if user != root?
+        # But `GitService._run_command` doesn't support sudo yet.
+        # For now, let's keep git pull as is (root), assuming root has access.
+        # If permissions fail, user might need to fix repo ownership.
 
         success, output = GitService._run_command(["git", "pull", "origin", branch], cwd=project_path)
         logs.append(output)
@@ -155,13 +170,8 @@ class GitService:
             logs.append("")
 
             try:
-                stat_info = os.stat(project_path)
-                uid = stat_info.st_uid
-
-                if pwd:
-                    user_name = pwd.getpwuid(uid).pw_name
-                else:
-                    user_name = os.getlogin()
+                # Use specified user
+                user_name = run_as_user
 
                 logs.append(f"  (Running as user: {user_name})")
                 logs.append("")

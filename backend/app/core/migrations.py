@@ -59,6 +59,9 @@ def run_migrations():
             if "deploy_count" not in columns:
                 add_column_safe("deploymentconfig", "deploy_count INTEGER DEFAULT 0 NOT NULL")
 
+            if "run_as_user" not in columns:
+                add_column_safe("deploymentconfig", "run_as_user VARCHAR DEFAULT 'root'")
+
         conn.commit()
         conn.close()
         logger.info("Database migrations completed.")
