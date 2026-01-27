@@ -23,3 +23,14 @@ class SupervisorStatus(BaseModel):
     state: str
     version: Optional[str] = None
     error: Optional[str] = None
+
+
+class SupervisorConfigCreate(BaseModel):
+    name: str
+    command: str
+    directory: Optional[str] = None
+    user: Optional[str] = "root"
+    autostart: bool = True
+    autorestart: bool = True
+    numprocs: int = 1
+

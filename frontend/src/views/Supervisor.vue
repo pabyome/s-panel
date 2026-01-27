@@ -12,6 +12,12 @@
         </svg>
         Refresh
       </button>
+      <button @click="openCreateModal" class="ml-2 inline-flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-500/25 transition-all hover:bg-violet-500 hover:shadow-xl hover:shadow-violet-500/30 hover:-translate-y-0.5">
+        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+        </svg>
+        Add Service
+      </button>
     </div>
 
     <!-- Supervisor Status Banner -->
@@ -243,19 +249,110 @@ port = 127.0.0.1:9001</pre>
         </button>
       </div>
     </BaseModal>
+
+    <!-- Create Service Modal -->
+    <BaseModal :isOpen="isCreateModalOpen" @close="isCreateModalOpen = false" title="Add New Service">
+      <form @submit.prevent="createProcess" class="space-y-5">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Service Name</label>
+          <input
+            type="text"
+            v-model="createForm.name"
+            required
+            class="block w-full rounded-xl border-0 py-2.5 px-4 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-violet-500 sm:text-sm"
+            placeholder="my-worker"
+          >
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Command</label>
+          <input
+            type="text"
+            v-model="createForm.command"
+            required
+            class="block w-full rounded-xl border-0 py-2.5 px-4 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-violet-500 sm:text-sm font-mono"
+            placeholder="/usr/bin/python3 /path/to/script.py"
+          >
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Working Directory</label>
+           <PathInput v-model="createForm.directory" placeholder="/var/www/my-app" />
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Run As User</label>
+          <input
+            type="text"
+            v-model="createForm.user"
+            class="block w-full rounded-xl border-0 py-2.5 px-4 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-violet-500 sm:text-sm"
+            placeholder="root"
+          >
+        </div>
+
+        <div class="flex gap-6">
+          <label class="flex items-center gap-2">
+            <input type="checkbox" v-model="createForm.autostart" class="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-600">
+            <span class="text-sm text-gray-700">Autostart</span>
+          </label>
+          <label class="flex items-center gap-2">
+            <input type="checkbox" v-model="createForm.autorestart" class="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-600">
+            <span class="text-sm text-gray-700">Autorestart</span>
+          </label>
+        </div>
+
+         <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Number of Processes</label>
+          <input
+            type="number"
+            v-model="createForm.numprocs"
+            min="1"
+            class="block w-full rounded-xl border-0 py-2.5 px-4 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-violet-500 sm:text-sm"
+          >
+        </div>
+
+        <div class="flex gap-3 pt-2">
+          <button
+            type="button"
+            @click="isCreateModalOpen = false"
+            class="flex-1 rounded-xl bg-gray-100 px-4 py-2.5 text-sm font-semibold text-gray-700 transition-all hover:bg-gray-200"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            class="flex-1 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-500/25 transition-all hover:bg-violet-500"
+          >
+            Create Service
+          </button>
+        </div>
+      </form>
+    </BaseModal>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
 import BaseModal from '../components/BaseModal.vue'
+import PathInput from '../components/PathInput.vue'
 
 const processes = ref([])
 const supervisorStatus = ref({ running: false, state: 'UNKNOWN', version: null, error: null })
 const showHelp = ref(false)
+const isCreateModalOpen = ref(false)
 const router = useRouter()
+
+const createForm = reactive({
+    name: '',
+    command: '',
+    directory: '',
+    user: 'root',
+    autostart: true,
+    autorestart: true,
+    numprocs: 1
+})
 
 const fetchData = async () => {
     await Promise.all([fetchStatus(), fetchProcesses()])
@@ -292,6 +389,29 @@ const controlProcess = async (name, action) => {
 
 const goToDetail = (name) => {
     router.push(`/supervisor/${name}`)
+}
+
+const openCreateModal = () => {
+    createForm.name = ''
+    createForm.command = ''
+    createForm.directory = ''
+    createForm.user = 'root'
+    createForm.autostart = true
+    createForm.autorestart = true
+    createForm.numprocs = 1
+    isCreateModalOpen.value = true
+}
+
+const createProcess = async () => {
+    try {
+        await axios.post('/api/v1/supervisor/processes', createForm)
+        isCreateModalOpen.value = false
+        // Refresh list
+        setTimeout(fetchProcesses, 1000)
+    } catch (e) {
+        console.error("Failed to create process", e)
+        alert("Failed to create process: " + (e.response?.data?.detail || e.message))
+    }
 }
 
 const getStatusBadgeClass = (status) => {

@@ -113,3 +113,36 @@ class SupervisorManager:
         except Exception as e:
             print(f"Error saving config: {e}")
             return False
+    @classmethod
+    def create_config(cls, config: Dict[str, Any]) -> bool:
+        """
+        Generate and save a supervisor configuration file.
+        config dict matches SupervisorConfigCreate schema.
+        """
+        name = config["name"]
+
+        # Basic INI generation
+        content = f"""[program:{name}]
+command={config['command']}
+"""
+        if config.get("directory"):
+            content += f"directory={config['directory']}\n"
+
+        user = config.get("user") or "root"
+        content += f"user={user}\n"
+
+        autostart = "true" if config.get("autostart") else "false"
+        content += f"autostart={autostart}\n"
+
+        autorestart = "true" if config.get("autorestart") else "false"
+        content += f"autorestart={autorestart}\n"
+
+        numprocs = config.get("numprocs", 1)
+        if numprocs > 1:
+             content += f"numprocs={numprocs}\n"
+             content += f"process_name=%(program_name)s_%(process_num)02d\n"
+
+        content += "stderr_logfile=/var/log/supervisor/%(program_name)s.err.log\n"
+        content += "stdout_logfile=/var/log/supervisor/%(program_name)s.out.log\n"
+
+        return cls.save_config_content(name, content)

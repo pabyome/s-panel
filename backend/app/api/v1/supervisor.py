@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 from typing import List
 from app.api.deps import CurrentUser
 from app.services.supervisor_manager import SupervisorManager
-from app.schemas.supervisor import SupervisorProcess, SupervisorConfigUpdate
+from app.schemas.supervisor import SupervisorProcess, SupervisorConfigUpdate, SupervisorConfigCreate
 
 router = APIRouter()
 
@@ -56,3 +56,11 @@ def update_config(name: str, config: SupervisorConfigUpdate, current_user: Curre
     if not SupervisorManager.save_config_content(name, config.content):
         raise HTTPException(status_code=500, detail="Failed to save config")
     return {"status": "saved"}
+
+
+@router.post("/processes")
+def create_process(config: SupervisorConfigCreate, current_user: CurrentUser):
+    if not SupervisorManager.create_config(config.model_dump()):
+        raise HTTPException(status_code=500, detail="Failed to create process configuration")
+    return {"status": "created"}
+
