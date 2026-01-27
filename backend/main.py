@@ -4,7 +4,7 @@ import uvicorn
 from sqlmodel import Session
 from app.models.database import create_db_and_tables, engine
 from app.services.auth_service import AuthService
-from app.api.v1 import auth, monitor, websites, firewall, supervisor, system, deployments, redis, cron
+from app.api.v1 import auth, monitor, websites, firewall, supervisor, system, deployments, redis, cron, backups, logs
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import os
@@ -40,6 +40,8 @@ app.include_router(system.router, prefix="/api/v1/system", tags=["system"])
 app.include_router(deployments.router, prefix="/api/v1/deployments", tags=["deployments"])
 app.include_router(redis.router, prefix="/api/v1/redis", tags=["redis"])
 app.include_router(cron.router, prefix="/api/v1/cron", tags=["cron"])
+app.include_router(backups.router, prefix="/api/v1/backups", tags=["backups"])
+app.include_router(logs.router, prefix="/api/v1/logs", tags=["logs"])
 
 
 # Serve Frontend (if built)
@@ -59,7 +61,7 @@ if os.path.exists(frontend_dir):
         # If full_path is empty, it maps to root, but FastAPI usually sends "" for root if defined as /{path}
         # actually for root "/" it might not match catch-all depending on definition.
         # But we need to handle "index.html" mapping.
-        
+
         target_file = full_path if full_path else "index.html"
         file_path = os.path.join(frontend_dir, target_file)
 
@@ -90,6 +92,12 @@ def get_free_port(start_port: int = 21040, step: int = 10):
                 raise RuntimeError("No available ports found.")
 
 if __name__ == "__main__":
+    if settings.SECRET_KEY == "changethis_to_a_secure_random_string_in_production":
+        print("\n" + "="*60)
+        print("WARNING: You are using the default SECRET_KEY!")
+        print("Please update it in your .env file for security.")
+        print("="*60 + "\n")
+
     try:
         port = get_free_port()
         print(f"Starting s-panel on port {port}...")

@@ -1,39 +1,53 @@
 #!/bin/bash
+
+# Update Script for s-panel
+# This script pulls the latest changes, installs dependencies, builds the frontend, and restarts the service.
+
 set -e
 
-# Colors
-GREEN='\033[0;32m'
-NC='\033[0m' # No Color
+echo "╔══════════════════════════════════════════════════════════╗"
+echo "║                   s-panel Update                         ║"
+echo "╚══════════════════════════════════════════════════════════╝"
 
-echo -e "${GREEN}=== s-panel Update Script ===${NC}"
-
-# 1. Pull Latest Code
-echo -e "${GREEN}[1/4] Pulling latest code...${NC}"
-git pull
+# 1. Pull latest changes
+echo "▶ Pulling latest changes from git..."
+git pull origin main
 
 # 2. Update Backend Dependencies
-echo -e "${GREEN}[2/4] Updating Backend...${NC}"
-cd backend
-uv sync
-cd ..
+echo "▶ Updating backend dependencies..."
+if command -v uv &> /dev/null; then
+    uv pip install -r backend/requirements.txt
+else
+    pip install -r backend/requirements.txt
+fi
 
-# 3. Rebuild Frontend
-echo -e "${GREEN}[3/4] Rebuilding Frontend...${NC}"
+# 3. Update Frontend Dependencies and Build
+echo "▶ Updating frontend..."
 cd frontend
-npm install
-npm run build
+if [ -f "yarn.lock" ]; then
+    yarn install
+    yarn build
+else
+    npm install
+    npm run build
+fi
 cd ..
 
 # 4. Restart Service
-echo -e "${GREEN}[4/4] Restarting Service...${NC}"
-if systemctl is-active --quiet spanel; then
-    sudo systemctl restart spanel
-    echo "Service restarted."
+echo "▶ Restarting s-panel service..."
+# Assuming running under supervisor or systemd.
+# If supervisor:
+if command -v supervisorctl &> /dev/null; then
+    supervisorctl restart spanel
+    echo "✓ Service restarted via supervisor."
 else
-    echo "Service 'spanel' is not running. Attempting to start..."
-    sudo systemctl start spanel
+    # Fallback or systemd
+    if systemctl is-active --quiet spanel; then
+        sudo systemctl restart spanel
+        echo "✓ Service restarted via systemd."
+    else
+        echo "⚠ Could not detect service manager. Please restart manually."
+    fi
 fi
 
-sudo systemctl status spanel --no-pager
-
-echo -e "${GREEN}=== Update Complete! ===${NC}"
+echo "✓ Update complete!"

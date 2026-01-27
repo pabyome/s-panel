@@ -16,35 +16,35 @@
         <li>
           <ul role="list" class="-mx-2 space-y-1">
             <li v-for="item in navigation" :key="item.name">
-              <router-link 
-                :to="item.href" 
+              <router-link
+                :to="item.href"
                 :class="[
-                    item.current 
-                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-900/20' 
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800', 
+                    item.current
+                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-900/20'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800',
                     'group flex gap-x-3 rounded-lg p-2 text-sm leading-6 font-medium transition-all duration-200'
                 ]"
               >
-                <component 
-                  :is="item.icon" 
+                <component
+                  :is="item.icon"
                   :class="[
                     item.current ? 'text-white' : 'text-slate-500 group-hover:text-white',
                     'h-5 w-5 shrink-0 transition-colors'
-                  ]" 
-                  aria-hidden="true" 
+                  ]"
+                  aria-hidden="true"
                 />
                 {{ item.name }}
               </router-link>
             </li>
           </ul>
         </li>
-        
+
         <!-- Bottom Section -->
         <li class="mt-auto">
-          <a href="#" class="group -mx-2 flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors">
+          <router-link to="/settings" class="group -mx-2 flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors">
             <Cog6ToothIcon class="h-5 w-5 shrink-0 text-slate-500 group-hover:text-white" aria-hidden="true" />
             Settings
-          </a>
+          </router-link>
           <div class="mt-4 border-t border-slate-800 pt-4 flex items-center gap-x-3">
               <div class="h-8 w-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-[10px] text-white font-bold shadow-sm">
                   AD
@@ -61,15 +61,17 @@
 </template>
 
 <script setup>
-import { 
-  HomeIcon, 
-  ServerIcon, 
-  ShieldCheckIcon, 
-  CpuChipIcon, 
-  CloudArrowUpIcon, 
-  CircleStackIcon, 
+import {
+  HomeIcon,
+  ServerIcon,
+  ShieldCheckIcon,
+  CpuChipIcon,
+  CloudArrowUpIcon,
+  CircleStackIcon,
   ClockIcon,
-  Cog6ToothIcon 
+  Cog6ToothIcon,
+  ArchiveBoxIcon,
+  DocumentTextIcon
 } from '@heroicons/vue/24/outline'
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
@@ -84,5 +86,7 @@ const navigation = computed(() => [
   { name: 'Deployments', href: '/deployments', icon: CloudArrowUpIcon, current: route.path.startsWith('/deployments') },
   { name: 'Redis', href: '/redis', icon: CircleStackIcon, current: route.path.startsWith('/redis') },
   { name: 'Cron Jobs', href: '/cron', icon: ClockIcon, current: route.path.startsWith('/cron') },
+  { name: 'Backups', href: '/backups', icon: ArchiveBoxIcon, current: route.path.startsWith('/backups') },
+  { name: 'Logs', href: '/logs', icon: DocumentTextIcon, current: route.path.startsWith('/logs') },
 ])
 </script>

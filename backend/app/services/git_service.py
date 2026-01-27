@@ -13,6 +13,60 @@ logger = logging.getLogger(__name__)
 
 class GitService:
     @staticmethod
+    def validate_command(command: str) -> Tuple[bool, str]:
+        """
+        Validates a shell command for safety.
+        Allowed: npm, yarn, pnpm, bun, pip, uv, poetry, python, php, composer, make, cargo, go, ./
+        Blocked: sudo, su, dangerous file ops, chaining with dangerous intent
+        """
+        if not command:
+            return True, ""
+
+        # Normalize
+        cmd = command.strip()
+
+        # Check against blacklist
+        blacklist = [
+            "sudo", "su ", "rm -rf", "mv /", "cp /", "chown", "chmod",
+            "|", ">", ">>", "<", "&",  # Block pipes and redirections for simplicity/safety
+            ";", # Block command chaining with semicolon (use && instead)
+            "`", "$(", # Block command substitution
+            "/bin/", "/usr/", "/etc/", "/var/", # strict path blocking
+        ]
+
+        for term in blacklist:
+            if term in cmd:
+                return False, f"Command contains forbidden term: '{term}'"
+
+        # Allow-list for command prefixes (and && chaining)
+        # We split by && to check each sub-command
+        sub_commands = cmd.split("&&")
+
+        allowed_prefixes = [
+            "npm", "yarn", "pnpm", "bun",
+            "pip", "uv", "poetry", "python", "python3",
+            "php", "composer",
+            "make", "cargo", "go",
+            "./" # Allow local scripts
+        ]
+
+        for sub_cmd in sub_commands:
+            sub_cmd = sub_cmd.strip()
+            if not sub_cmd:
+                continue
+
+            is_valid = False
+            for prefix in allowed_prefixes:
+                if sub_cmd.startswith(prefix + " ") or sub_cmd == prefix or sub_cmd.startswith(prefix):
+                     is_valid = True
+                     break
+
+            if not is_valid:
+                return False, f"Command starting with '{sub_cmd.split(' ')[0]}' is not in the allow-list."
+
+        return True, "Command is valid"
+
+    @staticmethod
     def _run_command(command: list[str], cwd: str) -> Tuple[bool, str]:
         """Runs a shell command and returns (success, output)."""
         try:
@@ -58,6 +112,12 @@ class GitService:
         """
         logs = []
         commit_hash = None
+
+        # 0. Validate post_command security
+        if post_command:
+            is_valid, msg = GitService.validate_command(post_command)
+            if not is_valid:
+                return False, f"Security Validation Failed: {msg}", None
 
         # 1. Check path
         if not os.path.isdir(project_path):

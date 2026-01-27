@@ -132,8 +132,9 @@
         </div>
       </div>
 
-      <!-- Right Column: Form/Detail Panel -->
-      <div class="lg:col-span-2 rounded-2xl bg-white shadow-sm ring-1 ring-gray-900/5 overflow-hidden">
+      <div class="lg:col-span-2 space-y-6">
+        <!-- Details Card -->
+        <div class="rounded-2xl bg-white shadow-sm ring-1 ring-gray-900/5 overflow-hidden">
         <div class="border-b border-gray-100 bg-gray-50/50 px-6 py-4 flex justify-between items-center">
           <div>
             <h3 class="text-base font-semibold text-gray-900">
@@ -245,6 +246,15 @@
               </div>
             </div>
           </form>
+
+           <!-- SSL Manager -->
+           <SSLManager
+             v-if="selectedWebsite?.id"
+             :websiteId="selectedWebsite.id"
+             :sslEnabled="selectedWebsite.ssl_enabled"
+             @update="fetchWebsites"
+           />
+        </div>
         </div>
       </div>
     </div>
@@ -255,6 +265,7 @@
 import { ref, onMounted, reactive } from 'vue'
 import axios from 'axios'
 import PathInput from '../components/PathInput.vue'
+import SSLManager from '../components/SSLManager.vue'
 
 const websites = ref([])
 const selectedWebsite = ref(null)

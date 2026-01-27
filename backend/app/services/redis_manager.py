@@ -45,16 +45,46 @@ class RedisManager:
             return {"error": "Config file not found"}
 
         config = {}
-        with open(path, 'r') as f:
-            lines = f.readlines()
-            for line in lines:
-                line = line.strip()
-                if not line or line.startswith('#'):
-                    continue
-                # Parse "key value"
-                parts = line.split(maxsplit=1)
-                if len(parts) == 2:
-                    config[parts[0]] = parts[1]
+        # Regex for "key value" where value can be quoted or not
+        # Basic Redis config: keyword argument...
+        # We assume 1 argument for simplicity map (key -> value)
+        # Matches: key value (simple), key "value with spaces", key 'value'
+        # Ignores comments starting with #
+
+        # Pattern:
+        # ^\s*          Start of line, optional whitespace
+        # ([^\s#]+)     Key: non-whitespace, non-comment char
+        # \s+           Whitespace separator
+        # (             Value Group
+        #   "(?:[^"\\]|\\.)*"  Double quoted string
+        #   |
+        #   '(?:[^'\\]|\\.)*'  Single quoted string
+        #   |
+        #   [^#\r\n]+          Unquoted value (until comment or EOL)
+        # )
+        pattern = re.compile(r'^\s*([^\s#]+)\s+(?:"((?:[^"\\]|\\.)*)"|\'((?:[^\'\\]|\\.)*)\'|([^#\r\n]+))')
+
+        try:
+            with open(path, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith('#'):
+                        continue
+
+                    match = pattern.match(line)
+                    if match:
+                        key = match.group(1)
+                        # Value could be in group 2 (double quote), 3 (single quote), or 4 (unquoted)
+                        if match.group(2) is not None:
+                            val = match.group(2)
+                        elif match.group(3) is not None:
+                            val = match.group(3)
+                        else:
+                            val = match.group(4).strip()
+
+                        config[key] = val
+        except Exception as e:
+            return {"error": f"Failed to parse config: {str(e)}"}
 
         return config
 
@@ -64,38 +94,48 @@ class RedisManager:
         if not path:
             return False
 
-        with open(path, 'r') as f:
-            lines = f.readlines()
+        try:
+            with open(path, 'r') as f:
+                lines = f.readlines()
+        except Exception:
+            return False
 
         new_lines = []
-        # Track which keys we updated
         updated_keys = set()
 
-        for line in lines:
-            stripped = line.strip()
-            # Check if this line is a config directive we want to change
-            # We must be careful not to uncomment commented lines unless requested,
-            # but usually we just modify active lines or append.
-            # Simplified approach: If line starts with key, replace it.
+        # Regex to match keys for replacement (simpler than full parse)
+        key_pattern = re.compile(r'^\s*([^\s#]+)\s+')
 
-            # TODO: robust parsing. For now, simple line match.
+        for line in lines:
+            match = key_pattern.match(line)
             replaced = False
-            if stripped and not stripped.startswith('#'):
-                parts = stripped.split(maxsplit=1)
-                if len(parts) >= 1:
-                    key = parts[0]
-                    if key in updates:
-                        new_lines.append(f"{key} {updates[key]}\n")
-                        updated_keys.add(key)
-                        replaced = True
+
+            if match and not line.strip().startswith('#'):
+                key = match.group(1)
+                if key in updates:
+                    # Replace the entire line with new key value
+                    # We check if value needs quoting? For simplicity, we just write it.
+                    # Should verify if value has spaces.
+                    val = str(updates[key])
+                    if " " in val and not (val.startswith('"') or val.startswith("'")):
+                        val = f'"{val}"'
+
+                    new_lines.append(f"{key} {val}\n")
+                    updated_keys.add(key)
+                    replaced = True
 
             if not replaced:
                 new_lines.append(line)
 
-        # Append new keys if they weren't found
-        for key, value in updates.items():
-            if key not in updated_keys:
-                new_lines.append(f"\n{key} {value}\n")
+        # Append new keys
+        if updates and len(updated_keys) < len(updates):
+            new_lines.append("\n# Added by s-panel\n")
+            for key, val in updates.items():
+                if key not in updated_keys:
+                    s_val = str(val)
+                    if " " in s_val and not (s_val.startswith('"') or s_val.startswith("'")):
+                        s_val = f'"{s_val}"'
+                    new_lines.append(f"{key} {s_val}\n")
 
         try:
             with open(path, 'w') as f:

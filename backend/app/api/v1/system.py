@@ -3,6 +3,15 @@ import os
 from typing import List
 from app.api.deps import CurrentUser
 from app.schemas.system import FileItem, PathListResponse
+from typing import Optional
+from pydantic import BaseModel
+import subprocess
+
+class UpdateInfo(BaseModel):
+    updates_available: bool
+    current_commit: str
+    latest_commit: str
+    message: str
 
 router = APIRouter()
 
@@ -61,3 +70,41 @@ def list_directory(
         current_path=clean_path,
         parent_path=os.path.dirname(clean_path)
     )
+
+@router.get("/update/check", response_model=UpdateInfo)
+def check_for_updates(current_user: CurrentUser):
+    try:
+        # Fetch remote
+        subprocess.run(["git", "fetch"], check=True, timeout=30)
+
+        # Get current hash
+        current = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], text=True).strip()
+
+        # Get remote hash
+        latest = subprocess.check_output(["git", "rev-parse", "--short", "origin/main"], text=True).strip()
+
+        available = current != latest
+
+        return UpdateInfo(
+            updates_available=available,
+            current_commit=current,
+            latest_commit=latest,
+            message="Update available" if available else "System is up to date"
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Git check failed: {str(e)}")
+
+@router.post("/update/apply")
+def apply_update(current_user: CurrentUser):
+    # This triggers the update script. usage: nohup ./update.sh &
+    # We run it in background because it will kill the API.
+    script_path = os.path.abspath("update.sh")
+    if not os.path.exists(script_path):
+        raise HTTPException(status_code=404, detail="Update script not found")
+
+    try:
+        # Run in independent process
+        subprocess.Popen(["/bin/bash", script_path], start_new_session=True)
+        return {"status": "updating", "message": "Update started in background. Service will restart shortly."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to start update: {str(e)}")

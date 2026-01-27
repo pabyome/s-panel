@@ -33,7 +33,7 @@ class WebsiteManager:
         except Exception as e:
             print(f"Exception during Nginx creation for {db_website.domain}: {e}")
             db_website.status = "error"
-        
+
         self.session.add(db_website)
         self.session.commit()
         self.session.refresh(db_website)
@@ -52,3 +52,16 @@ class WebsiteManager:
         self.session.delete(website)
         self.session.commit()
         return True
+
+    def enable_ssl(self, website_id: int, email: str) -> bool:
+        website = self.get_website_by_id(website_id)
+        if not website:
+            return False
+
+        success = NginxManager.secure_site(website.domain, email)
+        if success:
+            website.ssl_enabled = True
+            self.session.add(website)
+            self.session.commit()
+
+        return success
