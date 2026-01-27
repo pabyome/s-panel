@@ -152,7 +152,7 @@
           </button>
           <button
             @click="showLogs(deploy)"
-            v-if="deploy.last_logs"
+            v-if="deploy.last_logs || deploy.last_status === 'running'"
             class="inline-flex items-center gap-1.5 rounded-lg bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100"
           >
             <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -500,6 +500,14 @@ const fetchDeployments = async () => {
     try {
         const response = await axios.get('/api/v1/deployments/')
         deployments.value = response.data
+
+        // Update selectedDeploy if open to show real-time logs
+        if (selectedDeploy.value) {
+            const updated = deployments.value.find(d => d.id === selectedDeploy.value.id)
+            if (updated) {
+                selectedDeploy.value = updated
+            }
+        }
     } catch (e) {
         console.error("Failed to fetch deployments", e)
     }

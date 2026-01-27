@@ -144,10 +144,22 @@ async def handle_deploy_background(deployment_id: uuid.UUID):
         session.commit()
 
         try:
+            def update_logs(current_logs):
+                # We need to use a new session or refresh carefully to avoid conflicts/detached instances?
+                # Actually we are in a session context.
+                # But to commit intermediate results, we should careful.
+                # Simpler: just set the field and commit.
+                deployment.last_logs = current_logs
+                session.add(deployment)
+                session.commit()
+                # session.refresh(deployment) # Optional, but good to keep in sync
+
             success, logs, commit_hash = GitService.pull_and_deploy(
                 deployment.project_path,
                 deployment.branch,
                 deployment.post_deploy_command,
+                deployment.run_as_user,
+                log_callback=update_logs
             )
 
             # Update Status
