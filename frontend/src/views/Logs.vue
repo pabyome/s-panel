@@ -6,15 +6,27 @@
         <h1 class="text-2xl font-bold text-gray-900">System Logs</h1>
         <p class="mt-1 text-sm text-gray-500">View application and server logs</p>
       </div>
-      <button
-        @click="refreshLog"
-        class="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 transition-all"
-      >
-        <svg class="h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
-        </svg>
-        Refresh
-      </button>
+      <div class="flex gap-2">
+        <button
+          @click="clearLog"
+          :disabled="!selectedFile"
+          class="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-red-600 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-red-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+               <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+            </svg>
+            Clear Log
+        </button>
+        <button
+            @click="refreshLog"
+            class="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 transition-all"
+        >
+            <svg class="h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+            </svg>
+            Refresh
+        </button>
+      </div>
     </div>
 
     <!-- Main Content -->
@@ -114,6 +126,21 @@ const refreshLog = async () => {
         logContent.value = `Error loading log: ${e.response?.data?.detail || e.message}`
     } finally {
         loading.value = false
+    } finally {
+        loading.value = false
+    }
+}
+
+const clearLog = async () => {
+    if (!selectedFile.value) return
+    if (!confirm(`Are you sure you want to clear/truncate ${selectedFile.value.name}?`)) return
+
+    try {
+        await axios.post('/api/v1/logs/clear_file', { path: selectedFile.value.path })
+        refreshLog()
+        fetchFiles() // Update size
+    } catch (e) {
+        alert("Failed to clear log: " + (e.response?.data?.detail || e.message))
     }
 }
 

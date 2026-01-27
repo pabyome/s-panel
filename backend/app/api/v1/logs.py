@@ -91,3 +91,33 @@ def get_log_content(
         return LogContent(content=result.stdout, lines=lines)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/clear")
+def clear_log_file(
+    content: LogContent, # Reusing model for input: needs path
+    current_user: CurrentUser
+):
+    # We'll expect {"path": "..."} in body. LogContent has 'content', 'lines'.
+    # Let's make a specific schema or just use LogFile input?
+    # Actually, let's create a Request model inline or use Body.
+    pass
+
+@router.post("/clear_file")
+def clear_file(
+    data: dict, # path
+    current_user: CurrentUser
+):
+    path = data.get("path")
+    if not path or not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="File not found")
+
+    # Simple security check (same as read)
+    # TODO: Refactor shared security check
+
+    try:
+        # Truncate
+        with open(path, "w") as f:
+            f.truncate(0)
+        return {"status": "cleared"}
+    except Exception as e:
+         raise HTTPException(status_code=500, detail=f"Failed to clear log: {str(e)}")

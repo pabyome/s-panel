@@ -99,6 +99,14 @@ class SupervisorManager:
             return f"Error reading logs: {e}"
 
     @classmethod
+    def clear_log(cls, name: str) -> bool:
+        try:
+            with cls._get_rpc() as supervisor:
+                return supervisor.supervisor.clearProcessLogs(name)
+        except Exception:
+            return False
+
+    @classmethod
     def get_config_content(cls, program_name: str) -> str:
         # Best guess mapping: program_name "myapp" -> myapp.conf
         # But user might have weird naming. For MVP, assume name.conf

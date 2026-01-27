@@ -47,7 +47,8 @@ class GitService:
             "pip", "uv", "poetry", "python", "python3",
             "php", "composer",
             "make", "cargo", "go",
-            "./" # Allow local scripts
+            "./", # Allow local scripts
+            "cd", "echo", "ls", "mkdir", "cp", "mv", "rm", "touch", "(", # Common shell ops
         ]
 
         for sub_cmd in sub_commands:

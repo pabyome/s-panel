@@ -10,7 +10,7 @@ from datetime import datetime
 
 from app.models.database import engine
 from app.models.deployment import DeploymentConfig, DeploymentCreate, DeploymentRead, DeploymentUpdate
-from app.api.deps import CurrentUser, get_session
+from app.api.deps import CurrentUser, get_session, SessionDep
 from app.core.config import settings
 from app.services.git_service import GitService
 from app.services.supervisor_manager import SupervisorManager

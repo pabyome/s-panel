@@ -298,8 +298,13 @@
           <pre class="text-xs text-gray-100 font-mono whitespace-pre-wrap">{{ selectedDeploy.last_logs || 'No logs available' }}</pre>
         </div>
       </div>
-      <div class="mt-6">
-        <button @click="isLogsOpen = false" type="button" class="w-full rounded-xl bg-gray-100 px-4 py-2.5 text-sm font-semibold text-gray-700 transition-all hover:bg-gray-200">
+        </button>
+      </div>
+      <div class="mt-6 flex gap-3">
+        <button @click="clearDeploymentLogs" type="button" class="flex-1 rounded-xl bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-600 transition-all hover:bg-red-100">
+          Clear Logs
+        </button>
+        <button @click="isLogsOpen = false" type="button" class="flex-1 rounded-xl bg-gray-100 px-4 py-2.5 text-sm font-semibold text-gray-700 transition-all hover:bg-gray-200">
           Close
         </button>
       </div>
@@ -617,6 +622,21 @@ const showLogs = (deploy) => {
 
 const getWebhookUrl = (deploy) => {
     return `${window.location.origin}${deploy.webhook_url}`
+}
+
+const clearDeploymentLogs = async () => {
+    if (!selectedDeploy.value) return
+    if (!confirm("Are you sure you want to clear these deployment logs?")) return
+
+    try {
+        await axios.post(`/api/v1/deployments/${selectedDeploy.value.id}/logs/clear`)
+        selectedDeploy.value.last_logs = null
+        // Update main list too
+        const d = deployments.value.find(x => x.id === selectedDeploy.value.id)
+        if (d) d.last_logs = null
+    } catch (e) {
+        alert("Failed to clear logs: " + (e.response?.data?.detail || e.message))
+    }
 }
 
 const copyToClipboard = (text) => {

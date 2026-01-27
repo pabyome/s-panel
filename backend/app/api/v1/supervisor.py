@@ -64,6 +64,13 @@ def get_logs(current_user: CurrentUser, name: str, offset: int = 0, length: int 
     return {"log": log, "offset": offset + len(log)}
 
 
+@router.post("/processes/{name}/logs/clear")
+def clear_process_logs(name: str, current_user: CurrentUser):
+    if not SupervisorManager.clear_log(name):
+        raise HTTPException(status_code=500, detail="Failed to clear process logs")
+    return {"status": "cleared"}
+
+
 @router.get("/processes/{name}/config")
 def get_config(name: str, current_user: CurrentUser):
     content = SupervisorManager.get_config_content(name)
