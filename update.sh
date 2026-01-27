@@ -15,11 +15,14 @@ git pull origin main
 
 # 2. Update Backend Dependencies
 echo "▶ Updating backend dependencies..."
+cd backend
 if command -v uv &> /dev/null; then
-    uv pip install -r backend/requirements.txt
+    uv sync
 else
-    pip install -r backend/requirements.txt
+    # Fallback if uv not found (though it should be)
+    pip install .
 fi
+cd ..
 
 # 3. Update Frontend Dependencies and Build
 echo "▶ Updating frontend..."
