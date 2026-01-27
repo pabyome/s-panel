@@ -43,12 +43,14 @@ class FirewallManager:
 
             # Use regex to properly parse the line
             # Format: [ 1] 22/tcp   ALLOW IN    Anywhere
-            match = re.match(r"\[\s*(\d+)\]\s+(\S+)\s+(ALLOW|DENY)\s+(IN|OUT)?\s*(.*)", line.strip())
+            # Or: [ 2] 5432 on docker0  ALLOW       Anywhere
+            match = re.match(r"\[\s*(\d+)\]\s+(.*?)\s+(ALLOW|DENY|REJECT|LIMIT)(\s+(IN|OUT|FWD))?\s+(.*)", line.strip())
             if match:
                 rule_id = int(match.group(1))
-                to_port = match.group(2)
+                to_port = match.group(2).strip()
                 action = match.group(3)
-                from_ip = match.group(5).strip() or "Anywhere"
+                # Group 4 is direction (e.g. " IN")
+                from_ip = match.group(6).strip() or "Anywhere"
 
                 rules.append(FirewallRuleRead(id=rule_id, to_port=to_port, action=action, from_ip=from_ip))
         return rules
