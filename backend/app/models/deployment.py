@@ -28,5 +28,15 @@ class DeploymentCreate(SQLModel):
     post_deploy_command: Optional[str] = None
 
 
+class DeploymentUpdate(SQLModel):
+    """Schema for updating a deployment - all fields optional"""
+
+    name: Optional[str] = None
+    project_path: Optional[str] = None
+    branch: Optional[str] = None
+    supervisor_process: Optional[str] = None
+    post_deploy_command: Optional[str] = None
+
+
 class DeploymentRead(DeploymentConfig):
     webhook_url: str = ""  # Calculated field

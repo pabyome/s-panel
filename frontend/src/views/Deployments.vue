@@ -159,6 +159,15 @@
             Logs
           </button>
           <button
+            @click="openEditModal(deploy)"
+            class="inline-flex items-center gap-1.5 rounded-lg bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100"
+          >
+            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+            </svg>
+            Edit
+          </button>
+          <button
             @click="deleteDeployment(deploy.id)"
             class="ml-auto inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50"
           >
@@ -294,6 +303,74 @@
       </div>
     </BaseModal>
 
+    <!-- Edit Deployment Modal -->
+    <BaseModal :isOpen="isEditModalOpen" @close="isEditModalOpen = false" title="Edit Deployment">
+      <form @submit.prevent="updateDeployment" class="space-y-5">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Name</label>
+          <input
+            type="text"
+            v-model="editForm.name"
+            required
+            class="block w-full rounded-xl border-0 py-2.5 px-4 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-violet-500 sm:text-sm"
+          >
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Project Path</label>
+          <PathInput v-model="editForm.project_path" placeholder="/var/www/my-app" />
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Git Branch</label>
+            <input
+              type="text"
+              v-model="editForm.branch"
+              class="block w-full rounded-xl border-0 py-2.5 px-4 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-violet-500 sm:text-sm"
+            >
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Supervisor Process</label>
+            <select
+              v-model="editForm.supervisor_process"
+              class="block w-full rounded-xl border-0 py-2.5 px-4 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-violet-500 sm:text-sm"
+            >
+              <option value="">None (optional)</option>
+              <option v-for="proc in processes" :key="proc.name" :value="proc.name">{{ proc.name }}</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Post-Deploy Command</label>
+          <textarea
+            v-model="editForm.post_deploy_command"
+            rows="3"
+            class="block w-full rounded-xl border-0 py-2.5 px-4 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-violet-500 sm:text-sm font-mono"
+            placeholder="(cd backend && npm install) && (cd frontend && npm install && npm run build)"
+          ></textarea>
+          <p class="mt-1.5 text-xs text-gray-500">Run after git pull. Supports subshells with (cd dir && cmd). 10 min timeout.</p>
+        </div>
+
+        <div class="flex gap-3 pt-2">
+          <button
+            type="button"
+            @click="isEditModalOpen = false"
+            class="flex-1 rounded-xl bg-gray-100 px-4 py-2.5 text-sm font-semibold text-gray-700 transition-all hover:bg-gray-200"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            class="flex-1 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-500/25 transition-all hover:bg-violet-500"
+          >
+            Save Changes
+          </button>
+        </div>
+      </form>
+    </BaseModal>
+
     <!-- Add Deployment Modal -->
     <BaseModal :isOpen="isModalOpen" @close="isModalOpen = false" title="New Deployment">
       <form @submit.prevent="createDeployment" class="space-y-5">
@@ -374,12 +451,22 @@ import PathInput from '../components/PathInput.vue'
 const deployments = ref([])
 const processes = ref([])
 const isModalOpen = ref(false)
+const isEditModalOpen = ref(false)
 const isDetailsOpen = ref(false)
 const isLogsOpen = ref(false)
 const selectedDeploy = ref(null)
+const editingDeployId = ref(null)
 let pollInterval = null
 
 const form = reactive({
+    name: '',
+    project_path: '',
+    branch: 'main',
+    supervisor_process: '',
+    post_deploy_command: ''
+})
+
+const editForm = reactive({
     name: '',
     project_path: '',
     branch: 'main',
@@ -430,6 +517,31 @@ const createDeployment = async () => {
         fetchDeployments()
     } catch (e) {
         alert("Failed to create deployment")
+    }
+}
+
+const openEditModal = (deploy) => {
+    editingDeployId.value = deploy.id
+    editForm.name = deploy.name
+    editForm.project_path = deploy.project_path
+    editForm.branch = deploy.branch
+    editForm.supervisor_process = deploy.supervisor_process || ''
+    editForm.post_deploy_command = deploy.post_deploy_command || ''
+    fetchProcesses()
+    isEditModalOpen.value = true
+}
+
+const updateDeployment = async () => {
+    try {
+        await axios.put(`/api/v1/deployments/${editingDeployId.value}`, {
+            ...editForm,
+            supervisor_process: editForm.supervisor_process || null,
+            post_deploy_command: editForm.post_deploy_command || null
+        })
+        isEditModalOpen.value = false
+        fetchDeployments()
+    } catch (e) {
+        alert("Failed to update deployment: " + (e.response?.data?.detail || e.message))
     }
 }
 

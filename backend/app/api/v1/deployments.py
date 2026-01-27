@@ -9,7 +9,7 @@ import logging
 from datetime import datetime
 
 from app.models.database import engine
-from app.models.deployment import DeploymentConfig, DeploymentCreate, DeploymentRead
+from app.models.deployment import DeploymentConfig, DeploymentCreate, DeploymentRead, DeploymentUpdate
 from app.api.deps import CurrentUser, get_session
 from app.core.config import settings
 from app.services.git_service import GitService
@@ -59,6 +59,32 @@ def get_deployment(
     deployment = session.get(DeploymentConfig, deployment_id)
     if not deployment:
         raise HTTPException(status_code=404, detail="Deployment not found")
+    d_read = DeploymentRead.model_validate(deployment)
+    d_read.webhook_url = f"{settings.API_V1_STR}/deployments/webhook/{deployment.id}"
+    return d_read
+
+
+@router.put("/{deployment_id}", response_model=DeploymentRead)
+def update_deployment(
+    deployment_id: uuid.UUID,
+    update_data: DeploymentUpdate,
+    session: Session = Depends(get_session),
+    current_user: CurrentUser = None,
+):
+    """Update a deployment configuration."""
+    deployment = session.get(DeploymentConfig, deployment_id)
+    if not deployment:
+        raise HTTPException(status_code=404, detail="Deployment not found")
+
+    # Update only provided fields
+    update_dict = update_data.model_dump(exclude_unset=True)
+    for key, value in update_dict.items():
+        setattr(deployment, key, value)
+
+    session.add(deployment)
+    session.commit()
+    session.refresh(deployment)
+
     d_read = DeploymentRead.model_validate(deployment)
     d_read.webhook_url = f"{settings.API_V1_STR}/deployments/webhook/{deployment.id}"
     return d_read
