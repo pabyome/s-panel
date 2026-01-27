@@ -4,6 +4,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
+
 def generate_service_file():
     # Detect paths - but allow override for remote servers
     current_dir = Path.cwd()
@@ -35,7 +36,7 @@ def generate_service_file():
         service_user = "root"
 
         # Find UV
-        uv_path = "/usr/local/bin/uv" # Default common path
+        uv_path = "/usr/local/bin/uv"  # Default common path
         detected_uv = shutil.which("uv")
         if detected_uv:
             uv_path = detected_uv
@@ -44,24 +45,23 @@ def generate_service_file():
             print("⚠️  'uv' not found locally.")
             install_uv = input("Do you want to install it now? (y/n) [y]: ").strip().lower()
             if install_uv in ["", "y", "yes"]:
-                 print("Downloading and installing latest 'uv'...")
-                 try:
-                     subprocess.run("curl -LsSf https://astral.sh/uv/install.sh | sh", shell=True, check=True)
-                     # Update path
-                     new_uv = os.path.expanduser("~/.local/bin/uv") # Default install location
-                     if os.path.exists(new_uv):
-                         uv_path = new_uv
-                     elif shutil.which("uv"):
-                         uv_path = shutil.which("uv")
-                     else:
-                         print("Could not find uv after install. Please specify path manually.")
-                 except subprocess.CalledProcessError:
-                     print("Failed to install uv automatically.")
+                print("Downloading and installing latest 'uv'...")
+                try:
+                    subprocess.run("curl -LsSf https://astral.sh/uv/install.sh | sh", shell=True, check=True)
+                    # Update path
+                    new_uv = os.path.expanduser("~/.local/bin/uv")  # Default install location
+                    if os.path.exists(new_uv):
+                        uv_path = new_uv
+                    elif shutil.which("uv"):
+                        uv_path = shutil.which("uv")
+                    else:
+                        print("Could not find uv after install. Please specify path manually.")
+                except subprocess.CalledProcessError:
+                    print("Failed to install uv automatically.")
 
         uv_input = input(f"Enter path to 'uv' executable (default {uv_path}): ").strip()
         if uv_input:
             uv_path = uv_input
-
 
     # User input for Port
     default_port = 8000
@@ -70,7 +70,8 @@ def generate_service_file():
 
     # Use 'uv run' to execute uvicorn
     # --host 0.0.0.0 is needed for external access (e.g. from Nginx reverse proxy)
-    exec_cmd = f"{uv_path} run uvicorn main:app --host 0.0.0.0 --port {port} --workers 4"
+    # Note: Using single worker for WebSocket support (multiple workers require sticky sessions)
+    exec_cmd = f"{uv_path} run uvicorn main:app --host 0.0.0.0 --port {port}"
 
     service_content = f"""[Unit]
 Description=s-panel Backend Service
@@ -112,8 +113,9 @@ WantedBy=multi-user.target
     print("    # WebSocket Support")
     print("    proxy_http_version 1.1;")
     print("    proxy_set_header Upgrade $http_upgrade;")
-    print("    proxy_set_header Connection \"upgrade\";")
+    print('    proxy_set_header Connection "upgrade";')
     print("}")
+
 
 if __name__ == "__main__":
     generate_service_file()
