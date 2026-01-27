@@ -82,10 +82,10 @@ def update_website_config(
 @router.get("/{website_id}/logs")
 def get_website_logs(
     website_id: uuid.UUID,
-    type: str = "access", # access or error
-    lines: int = 100,
     session: SessionDep,
-    current_user: CurrentUser
+    current_user: CurrentUser,
+    type: str = "access", # access or error
+    lines: int = 100
 ):
     website = session.get(Website, website_id)
     if not website:

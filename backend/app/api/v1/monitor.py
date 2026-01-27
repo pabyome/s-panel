@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from starlette.websockets import WebSocketState
-from typing import Dict, Any
+from typing import Dict, Any, List
 import asyncio
 import logging
 from app.api.deps import CurrentUser
@@ -17,8 +17,8 @@ def get_system_stats(current_user: CurrentUser) -> Dict[str, Any]:
 
 @router.get("/processes", response_model=List[Dict[str, Any]])
 def get_top_processes(
-    limit: int = 20,
-    current_user: CurrentUser
+    current_user: CurrentUser,
+    limit: int = 20
 ):
     return SystemMonitor.get_top_processes(limit)
 
