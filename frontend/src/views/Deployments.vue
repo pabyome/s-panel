@@ -298,8 +298,6 @@
           <pre class="text-xs text-gray-100 font-mono whitespace-pre-wrap">{{ selectedDeploy.last_logs || 'No logs available' }}</pre>
         </div>
       </div>
-        </button>
-      </div>
       <div class="mt-6 flex gap-3">
         <button @click="clearDeploymentLogs" type="button" class="flex-1 rounded-xl bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-600 transition-all hover:bg-red-100">
           Clear Logs
