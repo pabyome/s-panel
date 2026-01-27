@@ -15,9 +15,29 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 # 1. Update and Install System Dependencies
-echo -e "${GREEN}[1/5] Installing System Dependencies...${NC}"
+echo -e "${GREEN}[1/6] Installing System Dependencies...${NC}"
 apt update
 apt install -y python3 python3-venv git unzip curl gnupg ufw supervisor nginx
+
+# 1b. Setup 'www' user and directory
+echo -e "${GREEN}[1b/6] Setting up 'www' user and directory...${NC}"
+if ! id "www" &>/dev/null; then
+    echo "Creating 'www' user..."
+    useradd -r -s /bin/false -g www-data www
+fi
+
+if [ ! -d "/www" ]; then
+    echo "Creating /www directory..."
+    mkdir -p /www
+fi
+
+# Set ownership: www user, www-data group
+chown -R www:www-data /www
+# Set permissions: 775 (Owner rwx, Group rwx, Others rx)
+chmod -R 775 /www
+# Add current user to www-data group if running as non-root (unlikely here as we check EUID 0, but good practice if testing)
+# or if there is a specific admin user.
+
 
 # 2. Install Node.js 20.x
 if ! command -v node &> /dev/null; then

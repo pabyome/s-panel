@@ -13,6 +13,14 @@ class UpdateInfo(BaseModel):
     latest_commit: str
     message: str
 
+class UserItem(BaseModel):
+    username: str
+    uid: int
+    gid: int
+    home: str
+    shell: str
+
+
 router = APIRouter()
 
 @router.get("/path/list", response_model=PathListResponse)
@@ -117,3 +125,37 @@ def apply_update(current_user: CurrentUser):
         return {"status": "updating", "message": "Update started in background. Service will restart shortly."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to start update: {str(e)}")
+
+
+@router.get("/users", response_model=List[UserItem])
+def list_system_users(current_user: CurrentUser):
+    users = []
+
+    # Common service users we want to show
+    # 'www' is our custom one, 'www-data' is standard, 'nginx', 'root'
+    WHITELIST = ["root", "www", "www-data", "nginx", "nobody"]
+
+    try:
+        import pwd
+        for p in pwd.getpwall():
+            # Filter logic:
+            # 1. UID >= 1000 (normal users)
+            # 2. OR username in WHITELIST
+            if p.pw_uid >= 1000 or p.pw_name in WHITELIST:
+                users.append(UserItem(
+                    username=p.pw_name,
+                    uid=p.pw_uid,
+                    gid=p.pw_gid,
+                    home=p.pw_dir,
+                    shell=p.pw_shell
+                ))
+
+        # Sort by name
+        users.sort(key=lambda x: x.username)
+        return users
+
+    except Exception as e:
+         # Fallback for non-Unix systems (dev on windows?)
+         # But pwd is unix only.
+         raise HTTPException(status_code=500, detail=f"Failed to list users: {str(e)}")
+

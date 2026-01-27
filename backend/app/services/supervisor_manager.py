@@ -108,7 +108,17 @@ class SupervisorManager:
             # Reload supervisor to apply changes
             with cls._get_rpc() as supervisor:
                 supervisor.supervisor.reloadConfig()
-                supervisor.supervisor.addProcessGroup(program_name)  # Ensure it's added if new
+                try:
+                    supervisor.supervisor.addProcessGroup(program_name)
+                except xmlrpc.client.Fault as e:
+                    if e.faultCode == 80:  # ALREADY_ADDED
+                        pass
+                    else:
+                        print(f"Supervisor RPC Error adding group: {e}")
+                        # Don't fail the request if just adding the group failed but config is saved
+                        # But maybe we should return success with warning?
+                        # For now, just logging it is safer than crashing 500.
+
             return True
         except Exception as e:
             print(f"Error saving config: {e}")
