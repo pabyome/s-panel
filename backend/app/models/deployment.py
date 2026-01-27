@@ -12,7 +12,7 @@ class DeploymentConfig(SQLModel, table=True):
     secret: str  # HMAC secret
     supervisor_process: Optional[str] = None  # Name of process to restart
     post_deploy_command: Optional[str] = None  # Shell command to run after pull
-    run_as_user: Optional[str] = Field(default="root") # User to run build command
+    run_as_user: Optional[str] = Field(default="root")  # User to run build command
     last_deployed_at: Optional[datetime] = None
     last_status: Optional[str] = None  # success, failed, running
     last_commit: Optional[str] = None  # Last deployed commit hash
@@ -52,6 +52,7 @@ class DeploymentRead(SQLModel):
     branch: str
     supervisor_process: Optional[str] = None
     post_deploy_command: Optional[str] = None
+    run_as_user: Optional[str] = "root"  # User to run build command
     last_deployed_at: Optional[datetime] = None
     last_status: Optional[str] = None
     last_commit: Optional[str] = None
