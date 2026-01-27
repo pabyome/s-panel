@@ -1,100 +1,173 @@
 <template>
-  <div>
-    <div class="sm:flex sm:items-center">
-      <div class="sm:flex-auto">
-        <h1 class="text-2xl font-semibold text-gray-900">Security</h1>
-        <p class="mt-2 text-sm text-gray-700">Manage firewall rules (UFW). Ensure Port 22 and 8000 are ALLOWED so you don't lock yourself out!</p>
+  <div class="space-y-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900">Firewall</h1>
+        <p class="mt-1 text-sm text-gray-500">Manage UFW firewall rules and protect your server</p>
       </div>
-      <div class="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
-        <button @click="openCreateModal" type="button" class="block rounded-md bg-indigo-600 px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
-          Add Rule
-        </button>
-      </div>
+      <button @click="openCreateModal" type="button" class="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-500/25 transition-all hover:bg-blue-500 hover:shadow-xl hover:shadow-blue-500/30 hover:-translate-y-0.5">
+        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+        </svg>
+        Add Rule
+      </button>
     </div>
 
-    <!-- Warning Alert -->
-    <div class="rounded-md bg-yellow-50 p-4 mt-6">
-      <div class="flex">
-        <div class="flex-shrink-0">
-          <!-- Heroicon name: mini/exclamation-triangle -->
-          <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-            <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+    <!-- Warning Banner -->
+    <div class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 p-5 shadow-lg shadow-amber-500/20">
+      <div class="absolute right-0 top-0 -mr-4 -mt-4 h-24 w-24 rounded-full bg-white/10"></div>
+      <div class="absolute right-10 bottom-0 -mb-6 h-20 w-20 rounded-full bg-white/5"></div>
+      <div class="relative flex items-start gap-4">
+        <div class="rounded-xl bg-white/20 p-2.5 backdrop-blur-sm">
+          <svg class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
           </svg>
         </div>
-        <div class="ml-3">
-          <h3 class="text-sm font-medium text-yellow-800">Caution</h3>
-          <div class="mt-2 text-sm text-yellow-700">
-            <p>Changes apply immediately to the system firewall. Incorrect rules can block access.</p>
+        <div>
+          <h3 class="text-sm font-semibold text-white">Important Security Notice</h3>
+          <p class="mt-1 text-sm text-white/80">Changes apply immediately. Always keep ports <span class="font-mono font-bold">22</span> (SSH) and <span class="font-mono font-bold">8000</span> (Panel) allowed to prevent lockout.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-900/5">
+        <div class="flex items-center gap-3">
+          <div class="rounded-xl bg-emerald-100 p-2.5">
+            <svg class="h-5 w-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <div>
+            <p class="text-sm text-gray-500">Allowed</p>
+            <p class="text-xl font-bold text-gray-900">{{ rules.filter(r => r.action === 'ALLOW').length }}</p>
+          </div>
+        </div>
+      </div>
+      <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-900/5">
+        <div class="flex items-center gap-3">
+          <div class="rounded-xl bg-red-100 p-2.5">
+            <svg class="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+            </svg>
+          </div>
+          <div>
+            <p class="text-sm text-gray-500">Denied</p>
+            <p class="text-xl font-bold text-gray-900">{{ rules.filter(r => r.action === 'DENY').length }}</p>
+          </div>
+        </div>
+      </div>
+      <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-900/5">
+        <div class="flex items-center gap-3">
+          <div class="rounded-xl bg-blue-100 p-2.5">
+            <svg class="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+            </svg>
+          </div>
+          <div>
+            <p class="text-sm text-gray-500">Total Rules</p>
+            <p class="text-xl font-bold text-gray-900">{{ rules.length }}</p>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Table -->
-    <div class="mt-8 flow-root">
-      <div class="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
-        <div class="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
-          <div class="overflow-hidden shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg">
-            <table class="min-w-full divide-y divide-gray-300">
-              <thead class="bg-gray-50">
-                <tr>
-                  <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">ID</th>
-                  <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Port/Protocol</th>
-                  <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Action</th>
-                  <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">From</th>
-                  <th scope="col" class="relative py-3.5 pl-3 pr-4 sm:pr-6">
-                    <span class="sr-only">Delete</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-gray-200 bg-white">
-                <tr v-for="rule in rules" :key="rule.id">
-                  <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">{{ rule.id }}</td>
-                  <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{{ rule.to_port }}</td>
-                  <td class="whitespace-nowrap px-3 py-4 text-sm">
-                    <span :class="[rule.action === 'ALLOW' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700', 'inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ring-gray-600/20']">{{ rule.action }}</span>
-                  </td>
-                   <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{{ rule.from_ip }}</td>
-                  <td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                    <button @click="deleteRule(rule.id)" class="text-red-600 hover:text-red-900">Delete</button>
-                  </td>
-                </tr>
-                 <tr v-if="rules.length === 0">
-                    <td colspan="5" class="text-center py-4 text-gray-500">
-                        No active rules or UFW is inactive.
-                        <br>
-                        <span class="text-xs text-gray-400">(Dev Note: UFW might not be available on MacOS)</span>
-                    </td>
-                 </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
+    <!-- Rules Table -->
+    <div class="rounded-2xl bg-white shadow-sm ring-1 ring-gray-900/5 overflow-hidden">
+      <div class="border-b border-gray-100 bg-gray-50/50 px-6 py-4">
+        <h3 class="text-sm font-semibold text-gray-900">Active Rules</h3>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-100">
+          <thead>
+            <tr class="bg-gray-50/50">
+              <th scope="col" class="py-3.5 pl-6 pr-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">ID</th>
+              <th scope="col" class="px-3 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Port / Protocol</th>
+              <th scope="col" class="px-3 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Action</th>
+              <th scope="col" class="px-3 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Source</th>
+              <th scope="col" class="relative py-3.5 pl-3 pr-6">
+                <span class="sr-only">Actions</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            <tr v-for="rule in rules" :key="rule.id" class="hover:bg-gray-50/50 transition-colors">
+              <td class="whitespace-nowrap py-4 pl-6 pr-3 text-sm">
+                <span class="inline-flex items-center rounded-lg bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700">
+                  #{{ rule.id }}
+                </span>
+              </td>
+              <td class="whitespace-nowrap px-3 py-4 text-sm">
+                <span class="font-mono font-medium text-gray-900">{{ rule.to_port }}</span>
+              </td>
+              <td class="whitespace-nowrap px-3 py-4 text-sm">
+                <span :class="[
+                  rule.action === 'ALLOW'
+                    ? 'bg-emerald-50 text-emerald-700 ring-emerald-600/20'
+                    : 'bg-red-50 text-red-700 ring-red-600/20',
+                  'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset'
+                ]">
+                  <span :class="[rule.action === 'ALLOW' ? 'bg-emerald-500' : 'bg-red-500', 'h-1.5 w-1.5 rounded-full']"></span>
+                  {{ rule.action }}
+                </span>
+              </td>
+              <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                <span class="font-mono">{{ rule.from_ip || 'Anywhere' }}</span>
+              </td>
+              <td class="relative whitespace-nowrap py-4 pl-3 pr-6 text-right text-sm">
+                <button @click="deleteRule(rule.id)" class="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50">
+                  <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                  </svg>
+                  Delete
+                </button>
+              </td>
+            </tr>
+            <tr v-if="rules.length === 0">
+              <td colspan="5" class="py-12 text-center">
+                <div class="flex flex-col items-center">
+                  <div class="rounded-xl bg-gray-100 p-3">
+                    <svg class="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+                    </svg>
+                  </div>
+                  <p class="mt-3 text-sm font-medium text-gray-900">No firewall rules</p>
+                  <p class="mt-1 text-sm text-gray-500">UFW may be inactive or no rules configured.</p>
+                  <button @click="openCreateModal" class="mt-4 text-sm font-medium text-blue-600 hover:text-blue-500">
+                    Add your first rule →
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
 
     <!-- Create Modal -->
     <BaseModal :isOpen="isModalOpen" title="Add Firewall Rule" @close="closeModal" @confirm="createRule">
-      <form class="space-y-4">
+      <form class="space-y-5">
         <div>
-          <label for="port" class="block text-sm font-medium leading-6 text-gray-900">Port</label>
+          <label for="port" class="block text-sm font-medium text-gray-700">Port</label>
           <div class="mt-2">
-            <input type="number" v-model="form.port" id="port" class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" placeholder="80">
+            <input type="number" v-model="form.port" id="port" class="block w-full rounded-xl border-0 py-2.5 px-4 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm" placeholder="80">
           </div>
         </div>
         <div>
-          <label for="protocol" class="block text-sm font-medium leading-6 text-gray-900">Protocol</label>
-           <div class="mt-2">
-            <select v-model="form.protocol" id="protocol" class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
+          <label for="protocol" class="block text-sm font-medium text-gray-700">Protocol</label>
+          <div class="mt-2">
+            <select v-model="form.protocol" id="protocol" class="block w-full rounded-xl border-0 py-2.5 px-4 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm">
               <option value="tcp">TCP</option>
               <option value="udp">UDP</option>
             </select>
           </div>
         </div>
-         <div>
-          <label for="action" class="block text-sm font-medium leading-6 text-gray-900">Action</label>
-           <div class="mt-2">
-            <select v-model="form.action" id="action" class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
+        <div>
+          <label for="action" class="block text-sm font-medium text-gray-700">Action</label>
+          <div class="mt-2">
+            <select v-model="form.action" id="action" class="block w-full rounded-xl border-0 py-2.5 px-4 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm">
               <option value="allow">Allow</option>
               <option value="deny">Deny</option>
             </select>
