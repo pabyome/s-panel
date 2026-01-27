@@ -54,6 +54,51 @@
         </div>
       </div>
     </div>
+    <!-- Notification Settings -->
+    <div class="rounded-2xl bg-white shadow-sm ring-1 ring-gray-900/5 overflow-hidden">
+      <div class="border-b border-gray-100 bg-gray-50/50 px-6 py-4">
+         <h3 class="text-base font-semibold text-gray-900">Notification Settings</h3>
+         <p class="mt-0.5 text-sm text-gray-500">Configure email alerts for deployments.</p>
+      </div>
+      <div class="p-6">
+         <form @submit.prevent="saveSmtp" class="space-y-4">
+            <div class="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-6">
+                <div class="sm:col-span-4">
+                    <label class="block text-sm font-medium text-gray-700">SMTP Host</label>
+                    <input type="text" v-model="smtpForm.host" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                </div>
+                <div class="sm:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700">Port</label>
+                    <input type="number" v-model="smtpForm.port" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                </div>
+
+                <div class="sm:col-span-3">
+                    <label class="block text-sm font-medium text-gray-700">Username</label>
+                    <input type="text" v-model="smtpForm.user" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                </div>
+                <div class="sm:col-span-3">
+                    <label class="block text-sm font-medium text-gray-700">Password</label>
+                    <input type="password" v-model="smtpForm.password" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                </div>
+
+                 <div class="sm:col-span-3">
+                    <label class="block text-sm font-medium text-gray-700">From Email</label>
+                    <input type="email" v-model="smtpForm.from_email" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                </div>
+                 <div class="sm:col-span-6">
+                    <label class="block text-sm font-medium text-gray-700">Admin Emails (comma separated)</label>
+                    <input type="text" v-model="smtpForm.admin_emails_str" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" placeholder="admin@example.com, dev@example.com">
+                </div>
+            </div>
+
+            <div class="flex justify-end pt-4">
+                 <button type="submit" class="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 hover:bg-indigo-500">
+                    Save Settings
+                 </button>
+            </div>
+         </form>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -69,6 +114,40 @@ const updateInfo = ref({
     latest_commit: '',
     message: ''
 })
+
+const smtpForm = ref({
+    host: '',
+    port: 587,
+    user: '',
+    password: '',
+    from_email: '',
+    admin_emails_str: ''
+})
+
+const fetchSmtp = async () => {
+    try {
+        const { data } = await axios.get('/api/v1/system/settings/smtp')
+        smtpForm.value = {
+            ...data,
+            admin_emails_str: data.admin_emails.join(', ')
+        }
+    } catch (e) {
+        console.error("Failed to fetch SMTP settings", e)
+    }
+}
+
+const saveSmtp = async () => {
+    try {
+        const payload = {
+            ...smtpForm.value,
+            admin_emails: smtpForm.value.admin_emails_str.split(',').map(e => e.trim()).filter(e => e)
+        }
+        await axios.post('/api/v1/system/settings/smtp', payload)
+        alert("Settings saved successfully")
+    } catch (e) {
+        alert("Failed to save settings: " + (e.response?.data?.detail || e.message))
+    }
+}
 
 const checkForUpdates = async () => {
     checking.value = true
@@ -97,5 +176,6 @@ const applyUpdate = async () => {
 
 onMounted(() => {
     checkForUpdates()
+    fetchSmtp()
 })
 </script>

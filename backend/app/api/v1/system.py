@@ -159,3 +159,43 @@ def list_system_users(current_user: CurrentUser):
          # But pwd is unix only.
          raise HTTPException(status_code=500, detail=f"Failed to list users: {str(e)}")
 
+from app.models.settings import SystemSetting
+from app.api.deps import SessionDep
+import json
+from pydantic import BaseModel, EmailStr
+
+class SMTPSettings(BaseModel):
+    host: str
+    port: int
+    user: str
+    password: str
+    from_email: EmailStr
+    admin_emails: List[EmailStr]
+
+@router.get("/settings/smtp", response_model=SMTPSettings)
+def get_smtp_settings(
+    session: SessionDep,
+    current_user: CurrentUser
+):
+    setting = session.get(SystemSetting, "smtp_config")
+    if not setting:
+        return SMTPSettings(
+            host="", port=587, user="", password="",
+            from_email="noreply@example.com", admin_emails=[]
+        )
+    return SMTPSettings(**json.loads(setting.value))
+
+@router.post("/settings/smtp")
+def save_smtp_settings(
+    settings: SMTPSettings,
+    session: SessionDep,
+    current_user: CurrentUser
+):
+    setting = session.get(SystemSetting, "smtp_config")
+    if not setting:
+        setting = SystemSetting(key="smtp_config", value="")
+
+    setting.value = settings.json()
+    session.add(setting)
+    session.commit()
+    return {"ok": True}

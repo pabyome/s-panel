@@ -29,6 +29,7 @@ const routes = [
       { path: 'settings', name: 'settings', component: () => import('../views/Settings.vue') },
       { path: 'logs', name: 'logs', component: () => import('../views/Logs.vue') },
       { path: 'databases', name: 'databases', component: () => import('../views/Databases.vue') },
+      { path: 'monitor', name: 'monitor', component: () => import('../views/Monitor.vue') },
     ]
   },
   {

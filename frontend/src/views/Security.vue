@@ -147,12 +147,12 @@
     </div>
 
     <!-- Create Modal -->
-    <BaseModal :isOpen="isModalOpen" title="Add Firewall Rule" @close="closeModal" @confirm="createRule">
-      <form class="space-y-5">
+    <BaseModal :isOpen="isModalOpen" title="Add Firewall Rule" @close="closeModal" :showFooter="false">
+      <form @submit.prevent="createRule" class="space-y-5">
         <div>
           <label for="port" class="block text-sm font-medium text-gray-700">Port</label>
           <div class="mt-2">
-            <input type="number" v-model="form.port" id="port" class="block w-full rounded-xl border-0 py-2.5 px-4 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm" placeholder="80">
+            <input type="number" v-model="form.port" id="port" required class="block w-full rounded-xl border-0 py-2.5 px-4 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm" placeholder="80">
           </div>
         </div>
         <div>
@@ -172,6 +172,22 @@
               <option value="deny">Deny</option>
             </select>
           </div>
+        </div>
+
+        <div class="flex gap-3 pt-2">
+          <button
+            type="button"
+            @click="closeModal"
+            class="flex-1 rounded-xl bg-gray-100 px-4 py-2.5 text-sm font-semibold text-gray-700 transition-all hover:bg-gray-200"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            class="flex-1 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-500/25 transition-all hover:bg-blue-500"
+          >
+            Add Rule
+          </button>
         </div>
       </form>
     </BaseModal>

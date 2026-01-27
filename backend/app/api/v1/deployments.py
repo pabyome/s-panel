@@ -178,6 +178,36 @@ async def handle_deploy_background(deployment_id: uuid.UUID):
 
             logger.info(f"Deployment {deployment.name} completed: {'success' if success else 'failed'}")
 
+            # Send Notification
+            from app.services.email_service import EmailService
+            subject = f"Deployment {deployment.name}: {'Successful' if success else 'Failed'}"
+            body = f"""
+Deployment for {deployment.name} has completed.
+Status: {'Success' if success else 'Failed'}
+Branch: {deployment.branch}
+Commit: {commit_hash}
+Time: {datetime.utcnow()}
+
+Logs snippet:
+{logs[-500:] if logs else 'No logs'}
+            """
+            EmailService.send_email(subject, body)
+
+        except Exception as e:
+            logger.exception(f"Deployment {deployment.name} failed with exception")
+            deployment.last_status = "failed"
+            deployment.last_logs = f"Unexpected error: {str(e)}"
+            deployment.last_deployed_at = datetime.utcnow()
+            session.add(deployment)
+            session.commit()
+
+            # Send Notification (Exception case)
+            from app.services.email_service import EmailService
+            EmailService.send_email(
+                f"Deployment {deployment.name}: Failed (Exception)",
+                f"Deployment failed with error: {str(e)}"
+            )
+
         except Exception as e:
             logger.exception(f"Deployment {deployment.name} failed with exception")
             deployment.last_status = "failed"

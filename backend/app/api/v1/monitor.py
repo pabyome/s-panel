@@ -15,6 +15,14 @@ def get_system_stats(current_user: CurrentUser) -> Dict[str, Any]:
     return SystemMonitor.get_all_stats()
 
 
+@router.get("/processes", response_model=List[Dict[str, Any]])
+def get_top_processes(
+    limit: int = 20,
+    current_user: CurrentUser
+):
+    return SystemMonitor.get_top_processes(limit)
+
+
 @router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()

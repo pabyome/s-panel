@@ -20,7 +20,7 @@
     <!-- Main Stats Grid -->
     <div v-if="stats" class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
       <!-- CPU Card -->
-      <div class="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 p-5 shadow-lg shadow-violet-500/25 transition-all hover:shadow-xl hover:shadow-violet-500/30 hover:-translate-y-0.5">
+      <div class="group relative overflow-hidden rounded-2xl bg-linear-to-br from-violet-500 to-purple-600 p-5 shadow-lg shadow-violet-500/25 transition-all hover:shadow-xl hover:shadow-violet-500/30 hover:-translate-y-0.5">
         <div class="absolute right-0 top-0 -mr-4 -mt-4 h-24 w-24 rounded-full bg-white/10"></div>
         <div class="absolute right-0 bottom-0 -mr-8 -mb-8 h-32 w-32 rounded-full bg-white/5"></div>
         <div class="relative">
@@ -200,7 +200,7 @@
                 </div>
                 <div>
                   <p class="text-xs text-gray-500">Operating System</p>
-                  <p class="text-sm font-medium text-gray-900">Ubuntu Linux</p>
+                  <p class="text-sm font-medium text-gray-900">{{ stats.os_info?.system || 'Linux' }} {{ stats.os_info?.release }}</p>
                 </div>
               </div>
             </div>
@@ -214,7 +214,7 @@
                 </div>
                 <div>
                   <p class="text-xs text-gray-500">Panel Version</p>
-                  <p class="text-sm font-medium text-gray-900">v0.1.0</p>
+                  <p class="text-sm font-medium text-gray-900">v1.2.0</p>
                 </div>
               </div>
             </div>
@@ -228,7 +228,7 @@
                 </div>
                 <div>
                   <p class="text-xs text-gray-500">Uptime</p>
-                  <p class="text-sm font-medium text-gray-900">--</p>
+                  <p class="text-sm font-medium text-gray-900">{{ formatUptime(stats.uptime) }}</p>
                 </div>
               </div>
             </div>
@@ -237,7 +237,7 @@
               <div class="flex items-center gap-3">
                 <div class="rounded-lg bg-gray-200 p-2">
                   <svg class="h-4 w-4 text-gray-600" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.288 15.038a5.25 5.25 0 017.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12.53 18.22l-.53.53-.53-.53a.75.75 0 011.06 0z" />
+                     <path stroke-linecap="round" stroke-linejoin="round" d="M8.288 15.038a5.25 5.25 0 017.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12.53 18.22l-.53.53-.53-.53a.75.75 0 011.06 0z" />
                   </svg>
                 </div>
                 <div>
@@ -304,9 +304,13 @@ const formatBytes = (bytes, decimals = 1) => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 }
 
-onMounted(() => {
-  connectWebSocket()
-})
+const formatUptime = (seconds) => {
+    if (!seconds || seconds <= 0) return '0s'
+    const days = Math.floor(seconds / 86400)
+    const hours = Math.floor((seconds % 86400) / 3600)
+    const minutes = Math.floor((seconds % 3600) / 60)
+    return days > 0 ? `${days}d ${hours}h` : `${hours}h ${minutes}m`
+}
 
 onUnmounted(() => {
   if (socket) {

@@ -1,5 +1,7 @@
 import psutil
 import os
+import time
+import platform
 from typing import Dict, Any
 
 class SystemMonitor:
@@ -46,6 +48,33 @@ class SystemMonitor:
              # Fallback for Windows (though the user is on Mac/Linux target)
             return {"1min": 0, "5min": 0, "15min": 0}
 
+    @staticmethod
+    def get_uptime() -> int:
+        return int(time.time() - psutil.boot_time())
+
+    @staticmethod
+    def get_os_info() -> Dict[str, str]:
+        return {
+            "system": platform.system(),
+            "release": platform.release(),
+            "version": platform.version()
+        }
+
+    @staticmethod
+    def get_top_processes(limit: int = 20) -> list[Dict[str, Any]]:
+        processes = []
+        for proc in psutil.process_iter(['pid', 'name', 'username', 'cpu_percent', 'memory_percent', 'create_time']):
+            try:
+                # fetch info
+                pInfo = proc.info
+                processes.append(pInfo)
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                pass
+
+        # Sort by cpu_percent desc
+        processes.sort(key=lambda x: x['cpu_percent'] or 0, reverse=True)
+        return processes[:limit]
+
     @classmethod
     def get_all_stats(cls) -> Dict[str, Any]:
         return {
@@ -53,4 +82,6 @@ class SystemMonitor:
             "memory": cls.get_memory_stats(),
             "disk": cls.get_disk_stats(),
             "load_avg": cls.get_load_average(),
+            "uptime": cls.get_uptime(),
+            "os_info": cls.get_os_info()
         }

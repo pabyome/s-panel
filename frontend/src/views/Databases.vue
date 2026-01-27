@@ -190,7 +190,7 @@
     </div>
 
     <!-- Create DB Modal -->
-    <BaseModal :isOpen="isCreateDbOpen" @close="isCreateDbOpen = false" title="Create Database">
+    <BaseModal :isOpen="isCreateDbOpen" @close="isCreateDbOpen = false" title="Create Database" :showFooter="false">
         <form @submit.prevent="createDatabase" class="space-y-4">
              <div>
                 <label class="block text-sm font-medium text-gray-700">Database Name</label>
@@ -210,7 +210,7 @@
     </BaseModal>
 
     <!-- Create User Modal -->
-    <BaseModal :isOpen="isCreateUserOpen" @close="isCreateUserOpen = false" title="Create User">
+    <BaseModal :isOpen="isCreateUserOpen" @close="isCreateUserOpen = false" title="Create User" :showFooter="false">
         <form @submit.prevent="createUser" class="space-y-4">
              <div>
                 <label class="block text-sm font-medium text-gray-700">Username</label>
@@ -238,7 +238,7 @@
     </BaseModal>
 
     <!-- Change Password Modal -->
-    <BaseModal :isOpen="isPassOpen" @close="isPassOpen = false" :title="'Change Password for ' + passForm.name">
+    <BaseModal :isOpen="isPassOpen" @close="isPassOpen = false" :title="'Change Password for ' + passForm.name" :showFooter="false">
         <form @submit.prevent="changePassword" class="space-y-4">
              <div>
                 <label class="block text-sm font-medium text-gray-700">New Password</label>
