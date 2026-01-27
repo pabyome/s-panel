@@ -39,21 +39,31 @@ def run_migrations():
         columns = [col[1] for col in cursor.fetchall()]
 
         if "id" in columns: # Table exists
+            # Helper to safely add column
+            def add_column_safe(table, col_def):
+                try:
+                    cursor.execute(f"ALTER TABLE {table} ADD COLUMN {col_def}")
+                    logger.info(f"Migrating: Added column {col_def} to {table}")
+                except sqlite3.OperationalError as e:
+                    if "duplicate column name" in str(e):
+                        logger.info(f"Migration check: Column {col_def.split()[0]} already exists in {table}")
+                    else:
+                        raise e
+
             if "last_commit" not in columns:
-                logger.info("Migrating: Adding last_commit to deploymentconfig")
-                cursor.execute("ALTER TABLE deploymentconfig ADD COLUMN last_commit VARCHAR")
+                add_column_safe("deploymentconfig", "last_commit VARCHAR")
 
             if "last_logs" not in columns:
-                logger.info("Migrating: Adding last_logs to deploymentconfig")
-                cursor.execute("ALTER TABLE deploymentconfig ADD COLUMN last_logs VARCHAR")
+                add_column_safe("deploymentconfig", "last_logs VARCHAR")
 
             if "deploy_count" not in columns:
-                logger.info("Migrating: Adding deploy_count to deploymentconfig")
-                cursor.execute("ALTER TABLE deploymentconfig ADD COLUMN deploy_count INTEGER DEFAULT 0 NOT NULL")
+                add_column_safe("deploymentconfig", "deploy_count INTEGER DEFAULT 0 NOT NULL")
 
         conn.commit()
         conn.close()
         logger.info("Database migrations completed.")
 
     except Exception as e:
-        logger.error(f"Migration failed: {e}")
+        logger.error(f"Migration failed causing startup error: {e}")
+        # We might want to suppress this error if it's just a race,
+        # but the granular handling above should catch most.
