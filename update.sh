@@ -19,8 +19,8 @@ cd backend
 if command -v uv &> /dev/null; then
     uv sync
 else
-    # Fallback if uv not found (though it should be)
-    pip install .
+    echo "❌ 'uv' is not installed. Please install uv: curl -LsSf https://astral.sh/uv/install.sh | sh"
+    exit 1
 fi
 cd ..
 
