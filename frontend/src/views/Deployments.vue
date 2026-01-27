@@ -198,7 +198,7 @@
     </div>
 
     <!-- Webhook Details Modal -->
-    <BaseModal :isOpen="isDetailsOpen" @close="isDetailsOpen = false" title="Webhook Configuration">
+    <BaseModal :isOpen="isDetailsOpen" @close="isDetailsOpen = false" title="Webhook Configuration" :showFooter="false">
       <div v-if="selectedDeploy" class="space-y-5">
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-2">Payload URL</label>
@@ -279,7 +279,7 @@
     </BaseModal>
 
     <!-- Logs Modal -->
-    <BaseModal :isOpen="isLogsOpen" @close="isLogsOpen = false" title="Deployment Logs" size="lg">
+    <BaseModal :isOpen="isLogsOpen" @close="isLogsOpen = false" title="Deployment Logs" size="lg" :showFooter="false">
       <div v-if="selectedDeploy" class="space-y-4">
         <div class="flex items-center gap-3">
           <span :class="getStatusBadgeClass(selectedDeploy.last_status)">
@@ -304,7 +304,7 @@
     </BaseModal>
 
     <!-- Edit Deployment Modal -->
-    <BaseModal :isOpen="isEditModalOpen" @close="isEditModalOpen = false" title="Edit Deployment">
+    <BaseModal :isOpen="isEditModalOpen" @close="isEditModalOpen = false" title="Edit Deployment" :showFooter="false">
       <form @submit.prevent="updateDeployment" class="space-y-5">
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-2">Name</label>
@@ -372,7 +372,7 @@
     </BaseModal>
 
     <!-- Add Deployment Modal -->
-    <BaseModal :isOpen="isModalOpen" @close="isModalOpen = false" title="New Deployment">
+    <BaseModal :isOpen="isModalOpen" @close="isModalOpen = false" title="New Deployment" :showFooter="false">
       <form @submit.prevent="createDeployment" class="space-y-5">
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-2">Name</label>
