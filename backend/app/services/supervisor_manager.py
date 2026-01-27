@@ -96,6 +96,26 @@ class SupervisorManager:
                 # readProcessStdoutLog(name, offset, length)
                 return supervisor.supervisor.readProcessStdoutLog(name, offset, length)
         except Exception as e:
+            # Fallback: Try reading file directly if XML-RPC fails (e.g. invalid XML chars)
+            try:
+                 with cls._get_rpc() as supervisor:
+                     info = supervisor.supervisor.getProcessInfo(name)
+                     logfile = info.get('stdout_logfile')
+
+                     if logfile and os.path.exists(logfile):
+                         # Respect offset/length semantics roughly
+                         # Supervisor offset is from beginning of file.
+                         file_size = os.path.getsize(logfile)
+                         if offset < 0: # Tail mode logic if needed, but usually offset provided is positive or recursive
+                             offset = max(0, file_size + offset)
+
+                         with open(logfile, 'rb') as f:
+                             f.seek(offset)
+                             data = f.read(length)
+                             return data.decode('utf-8', errors='replace')
+            except Exception as e2:
+                print(f"Fallback log read failed: {e2}")
+
             return f"Error reading logs: {e}"
 
     @classmethod
