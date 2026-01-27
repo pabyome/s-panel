@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
 from typing import List
-import uuid
 import os
 import subprocess
 import tempfile
@@ -48,7 +47,7 @@ def validate_nginx_config(config_data: NginxConfigUpdate, current_user: CurrentU
 
 
 @router.get("/{website_id}/config")
-def get_website_config(website_id: uuid.UUID, session: SessionDep, current_user: CurrentUser):
+def get_website_config(website_id: int, session: SessionDep, current_user: CurrentUser):
     website = session.get(Website, website_id)
     if not website:
         raise HTTPException(status_code=404, detail="Website not found")
@@ -66,7 +65,7 @@ def get_website_config(website_id: uuid.UUID, session: SessionDep, current_user:
 
 @router.post("/{website_id}/config")
 def update_website_config(
-    website_id: uuid.UUID, config_data: NginxConfigUpdate, session: SessionDep, current_user: CurrentUser
+    website_id: int, config_data: NginxConfigUpdate, session: SessionDep, current_user: CurrentUser
 ):
     """Update nginx config for a website with backup and revert on failure"""
     website = session.get(Website, website_id)
@@ -134,7 +133,7 @@ def update_website_config(
 
 @router.get("/{website_id}/logs")
 def get_website_logs(
-    website_id: uuid.UUID,
+    website_id: int,
     session: SessionDep,
     current_user: CurrentUser,
     type: str = "access",  # access or error
