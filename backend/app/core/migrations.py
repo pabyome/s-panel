@@ -60,6 +60,9 @@ def run_migrations():
             if "run_as_user" not in columns:
                 add_column_safe(cursor, "deploymentconfig", "run_as_user VARCHAR DEFAULT 'root'")
 
+            if "notification_emails" not in columns:
+                add_column_safe(cursor, "deploymentconfig", "notification_emails VARCHAR")
+
         # --- Migration 002: Website Columns ---
         cursor.execute("PRAGMA table_info(website)")
         website_columns = [col[1] for col in cursor.fetchall()]
