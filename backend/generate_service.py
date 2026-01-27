@@ -109,6 +109,10 @@ WantedBy=multi-user.target
     print(f"    proxy_pass http://127.0.0.1:{port};")
     print("    proxy_set_header Host $host;")
     print("    proxy_set_header X-Real-IP $remote_addr;")
+    print("    # WebSocket Support")
+    print("    proxy_http_version 1.1;")
+    print("    proxy_set_header Upgrade $http_upgrade;")
+    print("    proxy_set_header Connection \"upgrade\";")
     print("}")
 
 if __name__ == "__main__":

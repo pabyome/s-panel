@@ -46,18 +46,28 @@ app.include_router(cron.router, prefix="/api/v1/cron", tags=["cron"])
 frontend_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend", "dist")
 
 if os.path.exists(frontend_dir):
+    # Mount assets folder specifically to ensure MIME types are handled correctly
     app.mount("/assets", StaticFiles(directory=os.path.join(frontend_dir, "assets")), name="assets")
-    # You might need to mount other static folders if your build produces them (e.g. public)
 
     @app.get("/{full_path:path}")
     async def serve_frontend(full_path: str):
-        # API requests are already handled by routers above because they are included first
-        # Check if file exists in dist
-        file_path = os.path.join(frontend_dir, full_path)
+        # 1. Check if it's an API request (shouldn't be, but safe to check)
+        if full_path.startswith("api/"):
+            return {"error": "Not Found", "status": 404}
+
+        # 2. Construct file path
+        # If full_path is empty, it maps to root, but FastAPI usually sends "" for root if defined as /{path}
+        # actually for root "/" it might not match catch-all depending on definition.
+        # But we need to handle "index.html" mapping.
+        
+        target_file = full_path if full_path else "index.html"
+        file_path = os.path.join(frontend_dir, target_file)
+
+        # 3. If file exists (e.g. favicon.ico, vite.svg), serve it
         if os.path.exists(file_path) and os.path.isfile(file_path):
             return FileResponse(file_path)
 
-        # Fallback to index.html for SPA routing
+        # 4. Fallback to index.html for SPA (Vue Router)
         return FileResponse(os.path.join(frontend_dir, "index.html"))
 
 else:
