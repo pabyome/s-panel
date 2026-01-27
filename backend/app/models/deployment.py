@@ -38,5 +38,22 @@ class DeploymentUpdate(SQLModel):
     post_deploy_command: Optional[str] = None
 
 
-class DeploymentRead(DeploymentConfig):
+class DeploymentRead(SQLModel):
+    """Schema for reading a deployment - excludes secret for security"""
+
+    model_config = {"from_attributes": True}
+
+    id: uuid.UUID
+    name: str
+    project_path: str
+    branch: str
+    supervisor_process: Optional[str] = None
+    post_deploy_command: Optional[str] = None
+    last_deployed_at: Optional[datetime] = None
+    last_status: Optional[str] = None
+    last_commit: Optional[str] = None
+    last_logs: Optional[str] = None
+    deploy_count: int = 0
+    created_at: Optional[datetime] = None
+    secret: str  # Include for webhook setup
     webhook_url: str = ""  # Calculated field
