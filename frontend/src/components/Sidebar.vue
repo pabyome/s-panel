@@ -1,9 +1,9 @@
 <template>
-  <div class="flex grow flex-col gap-y-5 overflow-y-auto bg-gray-900 px-6 pb-4 shadow-xl ring-1 ring-white/10">
+  <div class="flex grow flex-col gap-y-5 overflow-y-auto bg-slate-900 px-6 pb-4 shadow-xl ring-1 ring-white/5">
     <!-- Logo -->
-    <div class="flex h-16 shrink-0 items-center border-b border-gray-800">
+    <div class="flex h-16 shrink-0 items-center border-b border-slate-800">
       <div class="flex items-center gap-x-3">
-          <div class="h-8 w-8 rounded-lg bg-indigo-500 flex items-center justify-center">
+          <div class="h-8 w-8 rounded-lg bg-indigo-600 shadow-lg shadow-indigo-500/30 flex items-center justify-center">
              <span class="text-white font-bold text-lg">S</span>
           </div>
           <span class="text-white font-bold text-lg tracking-wide">Panel</span>
@@ -11,7 +11,7 @@
     </div>
 
     <!-- Navigation -->
-    <nav class="flex flex-1 flex-col">
+    <nav class="flex flex-1 flex-col mt-4">
       <ul role="list" class="flex flex-1 flex-col gap-y-7">
         <li>
           <ul role="list" class="-mx-2 space-y-1">
@@ -20,12 +20,19 @@
                 :to="item.href" 
                 :class="[
                     item.current 
-                    ? 'bg-indigo-600 text-white shadow-md' 
-                    : 'text-gray-400 hover:text-white hover:bg-gray-800', 
-                    'group flex gap-x-3 rounded-lg p-2.5 text-sm leading-6 font-semibold transition-all duration-200'
+                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-900/20' 
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800', 
+                    'group flex gap-x-3 rounded-lg p-2.5 text-sm leading-6 font-medium transition-all duration-200'
                 ]"
               >
-                <component :is="item.icon" class="h-6 w-6 shrink-0" aria-hidden="true" />
+                <component 
+                  :is="item.icon" 
+                  :class="[
+                    item.current ? 'text-white' : 'text-slate-500 group-hover:text-white',
+                    'h-6 w-6 shrink-0 transition-colors'
+                  ]" 
+                  aria-hidden="true" 
+                />
                 {{ item.name }}
               </router-link>
             </li>
@@ -34,17 +41,17 @@
         
         <!-- Bottom Section -->
         <li class="mt-auto">
-          <a href="#" class="group -mx-2 flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-gray-400 hover:bg-gray-800 hover:text-white">
-            <Cog6ToothIcon class="h-6 w-6 shrink-0" aria-hidden="true" />
+          <a href="#" class="group -mx-2 flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors">
+            <Cog6ToothIcon class="h-6 w-6 shrink-0 text-slate-500 group-hover:text-white" aria-hidden="true" />
             Settings
           </a>
-          <div class="mt-4 border-t border-gray-800 pt-4 flex items-center gap-x-3">
-              <div class="h-8 w-8 rounded-full bg-gray-700 flex items-center justify-center text-xs text-white">
-                  Admin
+          <div class="mt-4 border-t border-slate-800 pt-4 flex items-center gap-x-3">
+              <div class="h-9 w-9 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-xs text-white font-bold shadow-sm">
+                  AD
               </div>
               <div class="flex flex-col">
-                  <span class="text-sm font-medium text-white">Administrator</span>
-                  <span class="text-xs text-gray-500">View Profile</span>
+                  <span class="text-sm font-medium text-white">Admin User</span>
+                  <span class="text-xs text-slate-500">System Administrator</span>
               </div>
           </div>
         </li>
