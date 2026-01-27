@@ -45,7 +45,7 @@ def stop_process(name: str, current_user: CurrentUser):
         if "BAD_NAME" in str(error):
             status = 404
         elif "NOT_RUNNING" in str(error):
-             status = 400
+            status = 400
         raise HTTPException(status_code=status, detail=detail)
     return {"status": "stopped"}
 
@@ -93,7 +93,7 @@ def create_process(config: SupervisorConfigCreate, current_user: CurrentUser):
 
 @router.delete("/processes/{name}")
 def delete_process(name: str, current_user: CurrentUser):
-    \"\"\"Delete a supervisor process configuration\"\"\"
+    """Delete a supervisor process configuration"""
     # First stop the process if running
     SupervisorManager.stop_process(name)
 
@@ -101,4 +101,3 @@ def delete_process(name: str, current_user: CurrentUser):
     if not SupervisorManager.delete_config(name):
         raise HTTPException(status_code=500, detail="Failed to delete process configuration")
     return {"status": "deleted"}
-

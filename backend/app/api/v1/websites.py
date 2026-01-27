@@ -15,38 +15,26 @@ router = APIRouter()
 
 
 @router.get("/nginx", response_model=dict)
-def get_nginx_info(
-    session: SessionDep,
-    current_user: CurrentUser
-):
-    return {
-        "version": NginxManager.get_version(),
-        "path": NginxManager.get_binary_path()
-    }
+def get_nginx_info(session: SessionDep, current_user: CurrentUser):
+    return {"version": NginxManager.get_version(), "path": NginxManager.get_binary_path()}
 
 
 @router.post("/nginx/validate")
-def validate_nginx_config(
-    config_data: NginxConfigUpdate,
-    current_user: CurrentUser
-):
-    \"\"\"Validate nginx configuration without saving\"\"\"
+def validate_nginx_config(config_data: NginxConfigUpdate, current_user: CurrentUser):
+    """Validate nginx configuration without saving"""
     content = config_data.content
     if not content:
         raise HTTPException(status_code=400, detail="Content is required")
 
     # Write to temp file for validation
     try:
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.conf', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".conf", delete=False) as f:
             f.write(content)
             temp_path = f.name
 
         # Test config syntax using nginx -t with included test file
         result = subprocess.run(
-            ["nginx", "-t", "-c", "/etc/nginx/nginx.conf"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True
+            ["nginx", "-t", "-c", "/etc/nginx/nginx.conf"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
         )
 
         os.unlink(temp_path)
@@ -60,11 +48,7 @@ def validate_nginx_config(
 
 
 @router.get("/{website_id}/config")
-def get_website_config(
-    website_id: uuid.UUID,
-    session: SessionDep,
-    current_user: CurrentUser
-):
+def get_website_config(website_id: uuid.UUID, session: SessionDep, current_user: CurrentUser):
     website = session.get(Website, website_id)
     if not website:
         raise HTTPException(status_code=404, detail="Website not found")
@@ -79,14 +63,12 @@ def get_website_config(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to read config: {str(e)}")
 
+
 @router.post("/{website_id}/config")
 def update_website_config(
-    website_id: uuid.UUID,
-    config_data: NginxConfigUpdate,
-    session: SessionDep,
-    current_user: CurrentUser
+    website_id: uuid.UUID, config_data: NginxConfigUpdate, session: SessionDep, current_user: CurrentUser
 ):
-    \"\"\"Update nginx config for a website with backup and revert on failure\"\"\"
+    """Update nginx config for a website with backup and revert on failure"""
     website = session.get(Website, website_id)
     if not website:
         raise HTTPException(status_code=404, detail="Website not found")
@@ -117,12 +99,7 @@ def update_website_config(
         raise HTTPException(status_code=500, detail=f"Failed to write config: {str(e)}")
 
     # 3. Test config
-    test_result = subprocess.run(
-        ["nginx", "-t"],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True
-    )
+    test_result = subprocess.run(["nginx", "-t"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
     if test_result.returncode != 0:
         # Revert to backup
@@ -132,10 +109,7 @@ def update_website_config(
                     f.write(old_content)
             except:
                 pass
-        return {
-            "ok": False,
-            "message": f"Nginx config test failed. Changes reverted.\\n{test_result.stderr}"
-        }
+        return {"ok": False, "message": f"Nginx config test failed. Changes reverted.\n{test_result.stderr}"}
 
     # 4. Reload nginx
     if NginxManager.reload_nginx():
@@ -163,8 +137,8 @@ def get_website_logs(
     website_id: uuid.UUID,
     session: SessionDep,
     current_user: CurrentUser,
-    type: str = "access", # access or error
-    lines: int = 100
+    type: str = "access",  # access or error
+    lines: int = 100,
 ):
     website = session.get(Website, website_id)
     if not website:
@@ -192,33 +166,24 @@ def get_website_logs(
         result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         return {"content": result.stdout}
     except Exception as e:
-         return {"content": f"Failed to read logs: {str(e)}"}
+        return {"content": f"Failed to read logs: {str(e)}"}
+
 
 @router.post("/", response_model=WebsiteRead)
-def create_website(
-    website: WebsiteCreate,
-    session: SessionDep,
-    current_user: CurrentUser
-):
+def create_website(website: WebsiteCreate, session: SessionDep, current_user: CurrentUser):
     manager = WebsiteManager(session)
     return manager.create_website(website)
 
+
 @router.get("/", response_model=List[WebsiteRead])
-def read_websites(
-    session: SessionDep,
-    current_user: CurrentUser
-):
+def read_websites(session: SessionDep, current_user: CurrentUser):
     manager = WebsiteManager(session)
     return manager.get_all_websites()
 
 
 @router.get("/{website_id}", response_model=WebsiteRead)
-def get_website(
-    website_id: int,
-    session: SessionDep,
-    current_user: CurrentUser
-):
-    \"\"\"Get a single website by ID\"\"\"
+def get_website(website_id: int, session: SessionDep, current_user: CurrentUser):
+    """Get a single website by ID"""
     website = session.get(Website, website_id)
     if not website:
         raise HTTPException(status_code=404, detail="Website not found")
@@ -226,13 +191,8 @@ def get_website(
 
 
 @router.put("/{website_id}", response_model=WebsiteRead)
-def update_website(
-    website_id: int,
-    update_data: WebsiteUpdate,
-    session: SessionDep,
-    current_user: CurrentUser
-):
-    \"\"\"Update website settings (name, port, project_path). Domain cannot be changed.\"\"\"
+def update_website(website_id: int, update_data: WebsiteUpdate, session: SessionDep, current_user: CurrentUser):
+    """Update website settings (name, port, project_path). Domain cannot be changed."""
     website = session.get(Website, website_id)
     if not website:
         raise HTTPException(status_code=404, detail="Website not found")
@@ -267,11 +227,7 @@ def update_website(
 
 
 @router.delete("/{website_id}")
-def delete_website(
-    website_id: int,
-    session: SessionDep,
-    current_user: CurrentUser
-):
+def delete_website(website_id: int, session: SessionDep, current_user: CurrentUser):
     manager = WebsiteManager(session)
     success = manager.delete_website(website_id)
     if not success:
@@ -280,14 +236,9 @@ def delete_website(
 
 
 @router.post("/{website_id}/ssl")
-def enable_ssl(
-    website_id: int,
-    email: str,
-    session: SessionDep,
-    current_user: CurrentUser
-):
+def enable_ssl(website_id: int, email: str, session: SessionDep, current_user: CurrentUser):
     manager = WebsiteManager(session)
     success = manager.enable_ssl(website_id, email)
     if not success:
-         raise HTTPException(status_code=400, detail="Failed to enable SSL. Check domains or server logs.")
+        raise HTTPException(status_code=400, detail="Failed to enable SSL. Check domains or server logs.")
     return {"ok": True}

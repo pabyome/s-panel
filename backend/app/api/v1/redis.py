@@ -9,13 +9,13 @@ router = APIRouter()
 
 @router.get("/status")
 def get_redis_status(current_user: CurrentUser):
-    \"\"\"Check Redis service status\"\"\"
+    """Check Redis service status"""
     return RedisManager.get_service_status()
 
 
 @router.post("/service/{action}")
 def control_redis_service(action: str, current_user: CurrentUser):
-    \"\"\"Start, stop, or restart Redis service\"\"\"
+    """Start, stop, or restart Redis service"""
     if action not in ["start", "stop", "restart"]:
         raise HTTPException(status_code=400, detail="Action must be 'start', 'stop', or 'restart'")
 
@@ -34,6 +34,7 @@ def get_config(current_user: CurrentUser):
         return {"config": {}, "error": config["error"]}
     return {"config": config}
 
+
 @router.put("/config")
 def update_config(updates: RedisConfigUpdate, current_user: CurrentUser):
     # Filter None values
@@ -48,26 +49,31 @@ def update_config(updates: RedisConfigUpdate, current_user: CurrentUser):
         return {"status": "success"}
     raise HTTPException(status_code=500, detail="Failed to save config")
 
+
 @router.get("/info")
 def get_info(current_user: CurrentUser):
     return RedisManager.get_info()
+
 
 @router.get("/keys")
 def get_keys(current_user: CurrentUser, pattern: str = "*", count: int = 100):
     # This just returns list of strings
     return {"keys": RedisManager.scan_keys(pattern, count)}
 
-@router.get("/keys/{key:path}") # :path allows slashes in key name
+
+@router.get("/keys/{key:path}")  # :path allows slashes in key name
 def get_key_detail(key: str, current_user: CurrentUser):
     # Decode double encoding if necessary?
     # Usually wrapper handles it.
     return RedisManager.get_key_details(key)
+
 
 @router.delete("/keys/{key:path}")
 def delete_key(key: str, current_user: CurrentUser):
     if RedisManager.delete_key(key):
         return {"status": "deleted"}
     raise HTTPException(status_code=404, detail="Key not found or could not be deleted")
+
 
 @router.post("/flush")
 def flush_db(current_user: CurrentUser):
