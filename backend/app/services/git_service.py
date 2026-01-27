@@ -28,7 +28,7 @@ class GitService:
         # Check against blacklist
         blacklist = [
             "sudo", "su ", "rm -rf", "mv /", "cp /", "chown", "chmod",
-            "|", ">", ">>", "<", "&",  # Block pipes and redirections for simplicity/safety
+            "|", ">", ">>", "<",  # Block pipes and redirections for simplicity/safety
             ";", # Block command chaining with semicolon (use && instead)
             "`", "$(", # Block command substitution
             "/bin/", "/usr/", "/etc/", "/var/", # strict path blocking
