@@ -1,7 +1,7 @@
-from sqlmodel import SQLModel, Field
-from typing import Optional
-from datetime import datetime
 import uuid
+from typing import Optional
+from sqlmodel import SQLModel, Field
+from datetime import datetime
 
 
 class DeploymentConfig(SQLModel, table=True):
@@ -39,7 +39,7 @@ class DeploymentUpdate(SQLModel):
 
 
 class DeploymentRead(SQLModel):
-    """Schema for reading a deployment - excludes secret for security"""
+    """Schema for reading a deployment"""
 
     model_config = {"from_attributes": True}
 
