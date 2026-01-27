@@ -22,9 +22,7 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         while True:
             # Run blocking psutil calls in thread pool to avoid blocking event loop
-            stats = await asyncio.get_event_loop().run_in_executor(
-                None, SystemMonitor.get_all_stats
-            )
+            stats = await asyncio.get_event_loop().run_in_executor(None, SystemMonitor.get_all_stats)
             await websocket.send_json(stats)
             await asyncio.sleep(1)  # Send updates every 1 second
     except WebSocketDisconnect:
