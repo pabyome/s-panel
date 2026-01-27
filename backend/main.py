@@ -21,7 +21,14 @@ async def lifespan(app: FastAPI):
         auth_service.ensure_admin_exists()
     yield
 
-app = FastAPI(title="s-panel", version="0.1.0", lifespan=lifespan)
+from app.core.config import settings
+
+app_kwargs = {}
+if settings.ENVIRONMENT == "production":
+    app_kwargs["docs_url"] = None
+    app_kwargs["redoc_url"] = None
+
+app = FastAPI(title="s-panel", version="0.1.0", lifespan=lifespan, **app_kwargs)
 
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
