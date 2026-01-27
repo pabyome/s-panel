@@ -38,19 +38,16 @@ cd ..
 
 # 4. Restart Service
 echo "▶ Restarting s-panel service..."
-# Assuming running under supervisor or systemd.
-# If supervisor:
-if command -v supervisorctl &> /dev/null; then
+
+if command -v systemctl &> /dev/null && systemctl cat spanel.service &> /dev/null; then
+    sudo systemctl restart spanel
+    echo "✓ Service restarted via systemd."
+elif command -v supervisorctl &> /dev/null && supervisorctl status spanel &> /dev/null; then
     supervisorctl restart spanel
     echo "✓ Service restarted via supervisor."
 else
-    # Fallback or systemd
-    if systemctl is-active --quiet spanel; then
-        sudo systemctl restart spanel
-        echo "✓ Service restarted via systemd."
-    else
-        echo "⚠ Could not detect service manager. Please restart manually."
-    fi
+    echo "⚠ Could not detect 'spanel' service in systemd or supervisor."
+    echo "⚠ Please restart the service manually."
 fi
 
 echo "✓ Update complete!"
