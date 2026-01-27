@@ -45,16 +45,24 @@
           </div>
         </div>
       </div>
-      <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-900/5">
+      <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-900/5 cursor-help group/nginx">
         <div class="flex items-center gap-3">
           <div class="rounded-xl bg-violet-100 p-2.5">
             <svg class="h-5 w-5 text-violet-600" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 14.25h13.5m-13.5 0a3 3 0 01-3-3m3 3a3 3 0 100 6h13.5a3 3 0 100-6m-16.5-3a3 3 0 013-3h13.5a3 3 0 013 3m-19.5 0a4.5 4.5 0 01.9-2.7L5.737 5.1a3.375 3.375 0 012.7-1.35h7.126c1.062 0 2.062.5 2.7 1.35l2.587 3.45a4.5 4.5 0 01.9 2.7m0 0a3 3 0 01-3 3m0 3h.008v.008h-.008v-.008zm0-6h.008v.008h-.008v-.008zm-3 6h.008v.008h-.008v-.008zm0-6h.008v.008h-.008v-.008z" />
             </svg>
           </div>
-          <div>
-            <p class="text-sm text-gray-500">Nginx Status</p>
-            <p class="text-xl font-bold text-emerald-600">Running</p>
+          <div class="flex-1 min-w-0">
+            <div class="flex justify-between items-start">
+              <div>
+                <p class="text-sm text-gray-500">Nginx Status</p>
+                <p class="text-xl font-bold text-emerald-600">Running</p>
+              </div>
+              <div class="text-right opacity-0 transition-opacity group-hover/nginx:opacity-100">
+                <p v-if="nginxInfo.version" class="text-xs text-gray-400 font-mono">{{ nginxInfo.version }}</p>
+                <p v-if="nginxInfo.path" class="text-[10px] text-gray-300 font-mono mt-0.5">{{ nginxInfo.path }}</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -268,6 +276,7 @@ import PathInput from '../components/PathInput.vue'
 import SSLManager from '../components/SSLManager.vue'
 
 const websites = ref([])
+const nginxInfo = ref({ version: '', path: '' })
 const selectedWebsite = ref(null)
 const form = reactive({
     name: '',
@@ -275,6 +284,15 @@ const form = reactive({
     port: 3000,
     project_path: ''
 })
+
+const fetchNginxInfo = async () => {
+    try {
+        const response = await axios.get('/api/v1/websites/nginx')
+        nginxInfo.value = response.data
+    } catch (e) {
+        console.error("Failed to fetch nginx info", e)
+    }
+}
 
 const fetchWebsites = async () => {
     try {
@@ -326,5 +344,6 @@ const deleteWebsite = async (id) => {
 
 onMounted(() => {
     fetchWebsites()
+    fetchNginxInfo()
 })
 </script>

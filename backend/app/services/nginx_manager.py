@@ -107,3 +107,23 @@ server {{
             "-m", email
         ]
         return NginxManager._run_command(cmd)
+
+    @staticmethod
+    def get_version() -> str:
+        try:
+            # nginx -v writes to stderr
+            result = subprocess.run(["nginx", "-v"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            # Output format: "nginx version: nginx/1.18.0 (Ubuntu)"
+            output = result.stderr.strip()
+            if "nginx version:" in output:
+                return output.split("nginx version:")[1].strip()
+            return output
+        except Exception:
+            return "Unknown"
+
+    @staticmethod
+    def get_binary_path() -> str:
+        try:
+            return shutil.which("nginx") or "Not found"
+        except Exception:
+            return "Unknown"

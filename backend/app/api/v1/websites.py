@@ -4,7 +4,19 @@ from app.api.deps import SessionDep, CurrentUser
 from app.schemas.website import WebsiteCreate, WebsiteRead
 from app.services.website_manager import WebsiteManager
 
+from app.services.nginx_manager import NginxManager
+
 router = APIRouter()
+
+@router.get("/nginx", response_model=dict)
+def get_nginx_info(
+    session: SessionDep,
+    current_user: CurrentUser
+):
+    return {
+        "version": NginxManager.get_version(),
+        "path": NginxManager.get_binary_path()
+    }
 
 @router.post("/", response_model=WebsiteRead)
 def create_website(
