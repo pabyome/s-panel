@@ -12,14 +12,6 @@ class User(SQLModel, table=True):
     last_login: Optional[datetime] = None
     role: str = "admin"
 
-class Website(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    name: str
-    domain: str = Field(index=True, unique=True)
-    port: int
-    project_path: str
-    ssl_enabled: bool = False
-    status: str = "stopped" # running, stopped, error
 
 class FirewallRule(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
