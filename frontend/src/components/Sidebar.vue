@@ -1,7 +1,7 @@
 <template>
   <div class="flex grow flex-col gap-y-5 overflow-y-auto bg-slate-900 px-6 pb-4 shadow-xl ring-1 ring-white/5">
     <!-- Logo -->
-    <div class="flex h-16 shrink-0 items-center border-b border-slate-800">
+    <div class="flex h-14 shrink-0 items-center border-b border-slate-800">
       <div class="flex items-center gap-x-3">
           <div class="h-8 w-8 rounded-lg bg-indigo-600 shadow-lg shadow-indigo-500/30 flex items-center justify-center">
              <span class="text-white font-bold text-lg">S</span>
@@ -11,8 +11,8 @@
     </div>
 
     <!-- Navigation -->
-    <nav class="flex flex-1 flex-col mt-4">
-      <ul role="list" class="flex flex-1 flex-col gap-y-7">
+    <nav class="flex flex-1 flex-col mt-2">
+      <ul role="list" class="flex flex-1 flex-col gap-y-4">
         <li>
           <ul role="list" class="-mx-2 space-y-1">
             <li v-for="item in navigation" :key="item.name">
@@ -22,14 +22,14 @@
                     item.current 
                     ? 'bg-indigo-600 text-white shadow-md shadow-indigo-900/20' 
                     : 'text-slate-400 hover:text-white hover:bg-slate-800', 
-                    'group flex gap-x-3 rounded-lg p-2.5 text-sm leading-6 font-medium transition-all duration-200'
+                    'group flex gap-x-3 rounded-lg p-2 text-sm leading-6 font-medium transition-all duration-200'
                 ]"
               >
                 <component 
                   :is="item.icon" 
                   :class="[
                     item.current ? 'text-white' : 'text-slate-500 group-hover:text-white',
-                    'h-6 w-6 shrink-0 transition-colors'
+                    'h-5 w-5 shrink-0 transition-colors'
                   ]" 
                   aria-hidden="true" 
                 />
@@ -42,16 +42,16 @@
         <!-- Bottom Section -->
         <li class="mt-auto">
           <a href="#" class="group -mx-2 flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors">
-            <Cog6ToothIcon class="h-6 w-6 shrink-0 text-slate-500 group-hover:text-white" aria-hidden="true" />
+            <Cog6ToothIcon class="h-5 w-5 shrink-0 text-slate-500 group-hover:text-white" aria-hidden="true" />
             Settings
           </a>
           <div class="mt-4 border-t border-slate-800 pt-4 flex items-center gap-x-3">
-              <div class="h-9 w-9 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-xs text-white font-bold shadow-sm">
+              <div class="h-8 w-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-[10px] text-white font-bold shadow-sm">
                   AD
               </div>
               <div class="flex flex-col">
-                  <span class="text-sm font-medium text-white">Admin User</span>
-                  <span class="text-xs text-slate-500">System Administrator</span>
+                  <span class="text-sm font-medium text-white leading-tight">Admin User</span>
+                  <span class="text-[10px] text-slate-500 leading-tight">System Administrator</span>
               </div>
           </div>
         </li>
