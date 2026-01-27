@@ -62,6 +62,21 @@ def run_migrations():
             if "run_as_user" not in columns:
                 add_column_safe("deploymentconfig", "run_as_user VARCHAR DEFAULT 'root'")
 
+        # --- Migration 002: Update Website columns ---
+        cursor.execute("PRAGMA table_info(website)")
+        website_columns = [col[1] for col in cursor.fetchall()]
+
+        if "id" in website_columns:
+            if "created_at" not in website_columns:
+                 # Default to current time approx if not set? SQLite supports CURRENT_TIMESTAMP
+                add_column_safe("website", "created_at DATETIME DEFAULT CURRENT_TIMESTAMP")
+
+            if "owner_id" not in website_columns:
+                add_column_safe("website", "owner_id INTEGER REFERENCES user(id)")
+
+            if "run_as_user" not in columns:
+                add_column_safe("deploymentconfig", "run_as_user VARCHAR DEFAULT 'root'")
+
         conn.commit()
         conn.close()
         logger.info("Database migrations completed.")

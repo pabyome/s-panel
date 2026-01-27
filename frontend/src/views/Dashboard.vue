@@ -200,7 +200,7 @@
                 </div>
                 <div>
                   <p class="text-xs text-gray-500">Operating System</p>
-                  <p class="text-sm font-medium text-gray-900">{{ stats.os_info?.system || 'Linux' }} {{ stats.os_info?.release }}</p>
+                  <p class="text-sm font-medium text-gray-900">{{ stats?.os_info?.system || 'Linux' }} {{ stats?.os_info?.release }}</p>
                 </div>
               </div>
             </div>
@@ -228,7 +228,7 @@
                 </div>
                 <div>
                   <p class="text-xs text-gray-500">Uptime</p>
-                  <p class="text-sm font-medium text-gray-900">{{ formatUptime(stats.uptime) }}</p>
+                  <p class="text-sm font-medium text-gray-900">{{ formatUptime(stats?.uptime) }}</p>
                 </div>
               </div>
             </div>
