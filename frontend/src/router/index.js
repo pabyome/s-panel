@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
 import Layout from '../layout/Layout.vue'
 import Dashboard from '../views/Dashboard.vue'
 import Websites from '../views/Websites.vue'
@@ -8,12 +9,13 @@ import SupervisorDetail from '../views/SupervisorDetail.vue'
 import Deployments from '../views/Deployments.vue'
 import Redis from '../views/Redis.vue'
 import CronJobs from '../views/CronJobs.vue'
-import Login from '../views/Login.vue' // Assuming Login exists, if not I'll leave it out or check
+import Login from '../views/Login.vue'
 
 const routes = [
   {
     path: '/',
     component: Layout,
+    meta: { requiresAuth: true },
     children: [
       { path: '', name: 'dashboard', component: Dashboard },
       { path: 'websites', name: 'websites', component: Websites },
@@ -35,6 +37,20 @@ const routes = [
 const router = createRouter({
   history: createWebHistory(),
   routes,
+})
+
+router.beforeEach((to, from, next) => {
+  const authStore = useAuthStore()
+  
+  if (to.matched.some(record => record.meta.requiresAuth)) {
+    if (!authStore.isAuthenticated) {
+      next({ name: 'login' })
+    } else {
+      next()
+    }
+  } else {
+    next()
+  }
 })
 
 export default router
