@@ -282,12 +282,7 @@ port = 127.0.0.1:9001</pre>
 
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-2">Run As User</label>
-          <input
-            type="text"
-            v-model="createForm.user"
-            class="block w-full rounded-xl border-0 py-2.5 px-4 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-violet-500 sm:text-sm"
-            placeholder="root"
-          >
+          <UserSelect v-model="createForm.user" />
         </div>
 
         <div class="flex gap-6">
@@ -337,6 +332,7 @@ import { useRouter } from 'vue-router'
 import axios from 'axios'
 import BaseModal from '../components/BaseModal.vue'
 import PathInput from '../components/PathInput.vue'
+import UserSelect from '../components/UserSelect.vue'
 
 const processes = ref([])
 const supervisorStatus = ref({ running: false, state: 'UNKNOWN', version: null, error: null })
