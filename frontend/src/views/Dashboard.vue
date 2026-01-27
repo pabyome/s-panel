@@ -1,76 +1,149 @@
 <template>
-  <div>
-    <h1 class="text-2xl font-semibold text-gray-900">Dashboard</h1>
-    
-    <div v-if="stats" class="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+  <div class="space-y-8">
+    <!-- Header -->
+    <div class="md:flex md:items-center md:justify-between">
+      <div class="min-w-0 flex-1">
+        <h2 class="text-2xl font-bold leading-7 text-gray-900 sm:truncate sm:text-3xl sm:tracking-tight">
+          System Overview
+        </h2>
+        <p class="mt-1 text-sm text-gray-500">
+          Real-time monitoring and control center.
+        </p>
+      </div>
+      <div class="mt-4 flex md:ml-4 md:mt-0">
+         <span class="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
+            System Online
+         </span>
+      </div>
+    </div>
+
+    <!-- Stats Grid -->
+    <div v-if="stats" class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
       <!-- CPU Card -->
-      <div class="bg-white overflow-hidden shadow rounded-lg">
-        <div class="p-5">
-          <div class="flex items-center">
-            <div class="flex-shrink-0">
-               <svg class="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" /></svg>
-            </div>
-            <div class="ml-5 w-0 flex-1">
-              <dl>
-                <dt class="text-sm font-medium text-gray-500 truncate">CPU Usage</dt>
-                <dd class="flex items-baseline">
-                  <div class="text-2xl font-semibold text-gray-900">{{ stats.cpu.percent }}%</div>
+      <div class="relative overflow-hidden rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-900/5 transition-all hover:shadow-md">
+        <div class="flex items-center justify-between">
+            <div>
+                <dt class="text-sm font-semibold leading-6 text-gray-500">CPU Usage</dt>
+                <dd class="mt-2 text-sm text-gray-600">
+                    <div class="flex items-baseline gap-2">
+                         <span class="text-2xl font-bold text-gray-900">{{ stats.cpu.count }}</span>
+                         <span class="text-sm">Cores</span>
+                    </div>
                 </dd>
-              </dl>
             </div>
-          </div>
+            <CircularGauge :value="stats.cpu.percent" label="Load" :size="90" />
         </div>
       </div>
 
        <!-- RAM Card -->
-      <div class="bg-white overflow-hidden shadow rounded-lg">
-        <div class="p-5">
-          <div class="flex items-center">
-            <div class="flex-shrink-0">
-               <svg class="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
-            </div>
-            <div class="ml-5 w-0 flex-1">
-              <dl>
-                <dt class="text-sm font-medium text-gray-500 truncate">RAM Usage</dt>
-                <dd class="flex items-baseline">
-                  <div class="text-2xl font-semibold text-gray-900">{{ formatBytes(stats.memory.used) }} / {{ formatBytes(stats.memory.total) }}</div>
-                  <div class="ml-2 text-sm text-gray-500">({{ stats.memory.percent }}%)</div>
+      <div class="relative overflow-hidden rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-900/5 transition-all hover:shadow-md">
+        <div class="flex items-center justify-between">
+            <div>
+                <dt class="text-sm font-semibold leading-6 text-gray-500">Memory</dt>
+                <dd class="mt-2 text-sm text-gray-600">
+                     <div class="text-2xl font-bold text-gray-900">{{ formatBytes(stats.memory.used) }}</div>
+                     <div class="text-xs">of {{ formatBytes(stats.memory.total) }}</div>
                 </dd>
-              </dl>
             </div>
-          </div>
+            <CircularGauge :value="stats.memory.percent" label="Used" :size="90" />
         </div>
       </div>
 
       <!-- Disk Card -->
-      <div class="bg-white overflow-hidden shadow rounded-lg">
-        <div class="p-5">
-          <div class="flex items-center">
-            <div class="flex-shrink-0">
-               <svg class="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg>
-            </div>
-            <div class="ml-5 w-0 flex-1">
-              <dl>
-                <dt class="text-sm font-medium text-gray-500 truncate">Disk Usage (/)</dt>
-                <dd class="flex items-baseline">
-                  <div class="text-2xl font-semibold text-gray-900">{{ formatBytes(stats.disk.used) }}</div>
-                  <div class="ml-2 text-sm text-gray-500">of {{ formatBytes(stats.disk.total) }}</div>
+      <div class="relative overflow-hidden rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-900/5 transition-all hover:shadow-md">
+         <div class="flex items-center justify-between">
+            <div>
+                <dt class="text-sm font-semibold leading-6 text-gray-500">Storage (/)</dt>
+                <dd class="mt-2 text-sm text-gray-600">
+                     <div class="text-2xl font-bold text-gray-900">{{ formatBytes(stats.disk.used) }}</div>
+                     <div class="text-xs">of {{ formatBytes(stats.disk.total) }}</div>
                 </dd>
-              </dl>
             </div>
-          </div>
+            <CircularGauge :value="stats.disk.percent" label="Full" :size="90" />
         </div>
       </div>
     </div>
-    <div v-else class="mt-6 text-gray-500">
-      Loading system stats...
+    
+    <!-- Loading State -->
+    <div v-else class="flex h-64 items-center justify-center rounded-2xl bg-gray-50 border-2 border-dashed border-gray-200">
+        <div class="text-center">
+            <svg class="mx-auto h-12 w-12 animate-spin text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <h3 class="mt-2 text-sm font-semibold text-gray-900">Connecting to Server...</h3>
+        </div>
     </div>
+
+    <!-- Quick Actions & Info -->
+    <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <!-- Quick Actions -->
+        <div class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-900/5">
+            <h3 class="text-base font-semibold leading-6 text-gray-900">Quick Actions</h3>
+            <div class="mt-6 grid grid-cols-2 gap-4">
+                <router-link to="/websites" class="flex flex-col items-center justify-center rounded-xl border border-gray-200 p-4 transition-colors hover:bg-gray-50 hover:border-indigo-300 group">
+                    <span class="mb-2 rounded-full bg-indigo-50 p-2 text-indigo-600 group-hover:bg-indigo-100">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                    </span>
+                    <span class="text-sm font-medium text-gray-900">New Website</span>
+                </router-link>
+
+                 <router-link to="/supervisor" class="flex flex-col items-center justify-center rounded-xl border border-gray-200 p-4 transition-colors hover:bg-gray-50 hover:border-indigo-300 group">
+                    <span class="mb-2 rounded-full bg-indigo-50 p-2 text-indigo-600 group-hover:bg-indigo-100">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" /></svg>
+                    </span>
+                    <span class="text-sm font-medium text-gray-900">Manage Processes</span>
+                </router-link>
+                
+                 <router-link to="/security" class="flex flex-col items-center justify-center rounded-xl border border-gray-200 p-4 transition-colors hover:bg-gray-50 hover:border-indigo-300 group">
+                    <span class="mb-2 rounded-full bg-indigo-50 p-2 text-indigo-600 group-hover:bg-indigo-100">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" /></svg>
+                    </span>
+                    <span class="text-sm font-medium text-gray-900">Firewall Rules</span>
+                </router-link>
+
+                 <router-link to="/cron" class="flex flex-col items-center justify-center rounded-xl border border-gray-200 p-4 transition-colors hover:bg-gray-50 hover:border-indigo-300 group">
+                    <span class="mb-2 rounded-full bg-indigo-50 p-2 text-indigo-600 group-hover:bg-indigo-100">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    </span>
+                    <span class="text-sm font-medium text-gray-900">Cron Jobs</span>
+                </router-link>
+            </div>
+        </div>
+
+        <!-- System Info -->
+         <div class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-900/5">
+            <h3 class="text-base font-semibold leading-6 text-gray-900">System Information</h3>
+             <div class="mt-6 flow-root">
+                <dl class="-my-5 divide-y divide-gray-100">
+                    <div class="flex gap-x-4 py-5" v-if="stats && stats.load_avg">
+                        <dt class="text-gray-500 text-sm">Load Average</dt>
+                        <dd class="text-sm font-medium text-gray-900">
+                             {{ stats.load_avg['1min'] }} (1m) / {{ stats.load_avg['5min'] }} (5m) / {{ stats.load_avg['15min'] }} (15m)
+                        </dd>
+                    </div>
+                     <div class="flex gap-x-4 py-5" v-if="stats">
+                        <dt class="text-gray-500 text-sm">Uptime</dt>
+                        <dd class="text-sm font-medium text-gray-900">
+                             Running
+                        </dd>
+                    </div>
+                    <div class="flex gap-x-4 py-5">
+                        <dt class="text-gray-500 text-sm">OS</dt>
+                        <dd class="text-sm font-medium text-gray-900">Linux / Ubuntu</dd>
+                    </div>
+                </dl>
+             </div>
+        </div>
+    </div>
+
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import axios from 'axios'
+import CircularGauge from '../components/CircularGauge.vue'
 
 const stats = ref(null)
 let interval = null

@@ -1,20 +1,52 @@
 <template>
-  <div class="flex grow flex-col gap-y-5 overflow-y-auto bg-gray-900 px-6 pb-4">
-    <div class="flex h-16 shrink-0 items-center">
-      <img class="h-8 w-auto" src="https://tailwindui.com/img/logos/mark.svg?color=indigo&shade=500" alt="s-panel" />
-      <span class="ml-4 text-white font-bold text-xl">s-panel</span>
+  <div class="flex grow flex-col gap-y-5 overflow-y-auto bg-gray-900 px-6 pb-4 shadow-xl ring-1 ring-white/10">
+    <!-- Logo -->
+    <div class="flex h-16 shrink-0 items-center border-b border-gray-800">
+      <div class="flex items-center gap-x-3">
+          <div class="h-8 w-8 rounded-lg bg-indigo-500 flex items-center justify-center">
+             <span class="text-white font-bold text-lg">S</span>
+          </div>
+          <span class="text-white font-bold text-lg tracking-wide">Panel</span>
+      </div>
     </div>
+
+    <!-- Navigation -->
     <nav class="flex flex-1 flex-col">
       <ul role="list" class="flex flex-1 flex-col gap-y-7">
         <li>
           <ul role="list" class="-mx-2 space-y-1">
             <li v-for="item in navigation" :key="item.name">
-              <router-link :to="item.href" :class="[item.current ? 'bg-gray-800 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-800', 'group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold']">
+              <router-link 
+                :to="item.href" 
+                :class="[
+                    item.current 
+                    ? 'bg-indigo-600 text-white shadow-md' 
+                    : 'text-gray-400 hover:text-white hover:bg-gray-800', 
+                    'group flex gap-x-3 rounded-lg p-2.5 text-sm leading-6 font-semibold transition-all duration-200'
+                ]"
+              >
                 <component :is="item.icon" class="h-6 w-6 shrink-0" aria-hidden="true" />
                 {{ item.name }}
               </router-link>
             </li>
           </ul>
+        </li>
+        
+        <!-- Bottom Section -->
+        <li class="mt-auto">
+          <a href="#" class="group -mx-2 flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-gray-400 hover:bg-gray-800 hover:text-white">
+            <Cog6ToothIcon class="h-6 w-6 shrink-0" aria-hidden="true" />
+            Settings
+          </a>
+          <div class="mt-4 border-t border-gray-800 pt-4 flex items-center gap-x-3">
+              <div class="h-8 w-8 rounded-full bg-gray-700 flex items-center justify-center text-xs text-white">
+                  Admin
+              </div>
+              <div class="flex flex-col">
+                  <span class="text-sm font-medium text-white">Administrator</span>
+                  <span class="text-xs text-gray-500">View Profile</span>
+              </div>
+          </div>
         </li>
       </ul>
     </nav>

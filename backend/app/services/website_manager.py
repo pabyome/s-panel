@@ -17,18 +17,26 @@ class WebsiteManager:
     def create_website(self, website_data: WebsiteCreate) -> Website:
         # 1. Create DB Entry
         db_website = Website.model_validate(website_data)
+        # Default status is 'stopped' (from model default), or we can set to 'provisioning'
         self.session.add(db_website)
         self.session.commit()
         self.session.refresh(db_website)
 
         # 2. Generate Nginx Config using reused Manager
-        # We wrap this in try/except to rollback DB if Nginx fails,
-        # but for MVP we might just log error.
-        success = NginxManager.create_site(db_website.domain, db_website.port)
-        if not success:
-            print(f"Warning: Failed to create Nginx config for {db_website.domain}")
-            # Optional: db_website.status = "error"
-            # self.session.add(db_website); self.session.commit()
+        try:
+            success = NginxManager.create_site(db_website.domain, db_website.port)
+            if success:
+                db_website.status = "running"
+            else:
+                print(f"Error: NginxManager returned False for {db_website.domain}")
+                db_website.status = "error"
+        except Exception as e:
+            print(f"Exception during Nginx creation for {db_website.domain}: {e}")
+            db_website.status = "error"
+        
+        self.session.add(db_website)
+        self.session.commit()
+        self.session.refresh(db_website)
 
         return db_website
 

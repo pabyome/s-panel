@@ -18,6 +18,10 @@ class NginxManager:
 
     @classmethod
     def generate_config(cls, domain: str, port: int) -> str:
+        # Extra safety: Ensure domain has no newlines to prevent config injection
+        if "\n" in domain or "\r" in domain:
+            raise ValueError("Invalid domain: contains newline characters")
+
         return f"""
 server {{
     listen 80;

@@ -1,35 +1,36 @@
 <template>
-  <div class="relative flex flex-col items-center">
-    <svg class="h-32 w-32 -rotate-90 transform" viewBox="0 0 100 100">
-      <!-- Background Circle -->
+  <div class="relative flex items-center justify-center">
+    <svg :width="size" :height="size" class="transform -rotate-90">
+      <!-- Background Ring -->
       <circle
-        class="text-gray-200"
-        stroke-width="10"
+        :cx="center"
+        :cy="center"
+        :r="radius"
         stroke="currentColor"
+        stroke-width="8"
         fill="transparent"
-        r="40"
-        cx="50"
-        cy="50"
+        class="text-gray-200"
       />
-      <!-- Progress Circle -->
+      <!-- Progress Ring -->
       <circle
-        class="transition-all duration-500 ease-out"
-        :class="colorClass"
-        stroke-width="10"
+        :cx="center"
+        :cy="center"
+        :r="radius"
+        stroke="currentColor"
+        stroke-width="8"
+        fill="transparent"
         :stroke-dasharray="circumference"
         :stroke-dashoffset="strokeDashoffset"
         stroke-linecap="round"
-        stroke="currentColor"
-        fill="transparent"
-        r="40"
-        cx="50"
-        cy="50"
+        class="transition-all duration-1000 ease-out"
+        :class="colorClass"
       />
     </svg>
-    <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center">
-      <span class="text-xl font-bold text-gray-700">{{ value }}%</span>
+    <!-- Value Text -->
+    <div class="absolute flex flex-col items-center justify-center text-gray-700">
+      <span class="text-xl font-bold">{{ value }}%</span>
+      <span v-if="label" class="text-xs text-gray-500 uppercase tracking-wider">{{ label }}</span>
     </div>
-    <span class="mt-2 text-sm font-medium text-gray-500">{{ label }}</span>
   </div>
 </template>
 
@@ -42,21 +43,27 @@ const props = defineProps({
     required: true,
     default: 0
   },
+  size: {
+    type: Number,
+    default: 120
+  },
   label: {
     type: String,
-    required: true
+    default: ''
   }
 })
 
-const circumference = 2 * Math.PI * 40
+const center = computed(() => props.size / 2)
+const radius = computed(() => (props.size / 2) - 10)
+const circumference = computed(() => 2 * Math.PI * radius.value)
 const strokeDashoffset = computed(() => {
-  const percent = Math.min(Math.max(props.value, 0), 100)
-  return circumference - (percent / 100) * circumference
+  const progress = props.value / 100
+  return circumference.value * (1 - progress)
 })
 
 const colorClass = computed(() => {
-  if (props.value < 60) return 'text-green-500'
-  if (props.value < 80) return 'text-yellow-500'
-  return 'text-red-500'
+  if (props.value > 80) return 'text-red-500'
+  if (props.value > 60) return 'text-yellow-500'
+  return 'text-emerald-500'
 })
 </script>
