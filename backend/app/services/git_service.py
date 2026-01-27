@@ -125,6 +125,19 @@ class GitService:
         if not os.path.isdir(project_path):
             return False, f"Project path does not exist: {project_path}", None
 
+        # 1b. Fix Dubious Ownership (Safe Directory)
+        # When running as root, we need to explicitly trust directories owned by other users
+        # This prevents "fatal: detected dubious ownership"
+        try:
+             subprocess.run(
+                 ["git", "config", "--global", "--add", "safe.directory", project_path],
+                 cwd=project_path,
+                 check=False,
+                 capture_output=True
+             )
+        except Exception:
+             pass
+
         # 2. Git Pull
         logs.append(f"╔══════════════════════════════════════════════════════════╗")
         logs.append(f"║  Deploying: {project_path}")
