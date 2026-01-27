@@ -3,14 +3,16 @@ from typing import List
 import uuid
 import os
 import subprocess
+import tempfile
 from app.api.deps import SessionDep, CurrentUser
-from app.schemas.website import WebsiteCreate, WebsiteRead
+from app.schemas.website import WebsiteCreate, WebsiteRead, WebsiteUpdate, NginxConfigUpdate
 from app.models.website import Website
 from app.services.website_manager import WebsiteManager
 
 from app.services.nginx_manager import NginxManager
 
 router = APIRouter()
+
 
 @router.get("/nginx", response_model=dict)
 def get_nginx_info(
@@ -21,6 +23,41 @@ def get_nginx_info(
         "version": NginxManager.get_version(),
         "path": NginxManager.get_binary_path()
     }
+
+
+@router.post("/nginx/validate")
+def validate_nginx_config(
+    config_data: NginxConfigUpdate,
+    current_user: CurrentUser
+):
+    \"\"\"Validate nginx configuration without saving\"\"\"
+    content = config_data.content
+    if not content:
+        raise HTTPException(status_code=400, detail="Content is required")
+
+    # Write to temp file for validation
+    try:
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.conf', delete=False) as f:
+            f.write(content)
+            temp_path = f.name
+
+        # Test config syntax using nginx -t with included test file
+        result = subprocess.run(
+            ["nginx", "-t", "-c", "/etc/nginx/nginx.conf"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+
+        os.unlink(temp_path)
+
+        if result.returncode == 0:
+            return {"valid": True, "message": "Configuration syntax is valid"}
+        else:
+            return {"valid": False, "message": result.stderr}
+    except Exception as e:
+        return {"valid": False, "message": str(e)}
+
 
 @router.get("/{website_id}/config")
 def get_website_config(
@@ -45,21 +82,32 @@ def get_website_config(
 @router.post("/{website_id}/config")
 def update_website_config(
     website_id: uuid.UUID,
-    config_data: dict, # Expect {"content": "..."}
+    config_data: NginxConfigUpdate,
     session: SessionDep,
     current_user: CurrentUser
 ):
+    \"\"\"Update nginx config for a website with backup and revert on failure\"\"\"
     website = session.get(Website, website_id)
     if not website:
         raise HTTPException(status_code=404, detail="Website not found")
 
-    new_content = config_data.get("content")
+    new_content = config_data.content
     if not new_content:
         raise HTTPException(status_code=400, detail="Content is required")
 
     config_path = f"/etc/nginx/sites-available/{website.domain}"
+    backup_path = f"{config_path}.backup"
 
-    # 1. Backup old config? (Optional but good)
+    # 1. Backup old config
+    old_content = None
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, "r") as f:
+                old_content = f.read()
+            with open(backup_path, "w") as f:
+                f.write(old_content)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to backup config: {str(e)}")
 
     # 2. Write new config
     try:
@@ -69,17 +117,45 @@ def update_website_config(
         raise HTTPException(status_code=500, detail=f"Failed to write config: {str(e)}")
 
     # 3. Test config
-    if not NginxManager._run_command(["nginx", "-t"]):
-        # Revert!! (Ideally)
-        # For now, just raise error but file is overwritten.
-        # TODO: Implement revert logic.
-        return {"ok": False, "message": "Config saved but Nginx test failed! Please fix syntax."}
+    test_result = subprocess.run(
+        ["nginx", "-t"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True
+    )
 
-    # 4. Reload
+    if test_result.returncode != 0:
+        # Revert to backup
+        if old_content:
+            try:
+                with open(config_path, "w") as f:
+                    f.write(old_content)
+            except:
+                pass
+        return {
+            "ok": False,
+            "message": f"Nginx config test failed. Changes reverted.\\n{test_result.stderr}"
+        }
+
+    # 4. Reload nginx
     if NginxManager.reload_nginx():
-        return {"ok": True, "message": "Config saved and Nginx reloaded"}
+        # Clean up backup on success
+        if os.path.exists(backup_path):
+            try:
+                os.remove(backup_path)
+            except:
+                pass
+        return {"ok": True, "message": "Config saved and Nginx reloaded successfully"}
     else:
-        return {"ok": False, "message": "Config saved but failed to reload Nginx"}
+        # Revert on reload failure
+        if old_content:
+            try:
+                with open(config_path, "w") as f:
+                    f.write(old_content)
+                NginxManager.reload_nginx()
+            except:
+                pass
+        return {"ok": False, "message": "Config test passed but failed to reload Nginx. Changes reverted."}
 
 
 @router.get("/{website_id}/logs")
@@ -134,6 +210,61 @@ def read_websites(
 ):
     manager = WebsiteManager(session)
     return manager.get_all_websites()
+
+
+@router.get("/{website_id}", response_model=WebsiteRead)
+def get_website(
+    website_id: int,
+    session: SessionDep,
+    current_user: CurrentUser
+):
+    \"\"\"Get a single website by ID\"\"\"
+    website = session.get(Website, website_id)
+    if not website:
+        raise HTTPException(status_code=404, detail="Website not found")
+    return website
+
+
+@router.put("/{website_id}", response_model=WebsiteRead)
+def update_website(
+    website_id: int,
+    update_data: WebsiteUpdate,
+    session: SessionDep,
+    current_user: CurrentUser
+):
+    \"\"\"Update website settings (name, port, project_path). Domain cannot be changed.\"\"\"
+    website = session.get(Website, website_id)
+    if not website:
+        raise HTTPException(status_code=404, detail="Website not found")
+
+    old_port = website.port
+
+    # Update only provided fields
+    update_dict = update_data.model_dump(exclude_unset=True)
+    for key, value in update_dict.items():
+        setattr(website, key, value)
+
+    # If port changed, regenerate nginx config
+    if update_data.port and update_data.port != old_port:
+        new_config = NginxManager.generate_config(website.domain, update_data.port)
+        config_path = f"/etc/nginx/sites-available/{website.domain}"
+        try:
+            with open(config_path, "w") as f:
+                f.write(new_config)
+            if not NginxManager.reload_nginx():
+                # Revert port in DB if nginx reload fails
+                website.port = old_port
+                session.add(website)
+                session.commit()
+                raise HTTPException(status_code=500, detail="Failed to reload Nginx after port change")
+        except IOError as e:
+            raise HTTPException(status_code=500, detail=f"Failed to update nginx config: {str(e)}")
+
+    session.add(website)
+    session.commit()
+    session.refresh(website)
+    return website
+
 
 @router.delete("/{website_id}")
 def delete_website(

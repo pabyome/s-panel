@@ -1,20 +1,72 @@
 import redis
 import os
 import re
-from typing import Dict, Any, List, Optional
+import subprocess
+from typing import Dict, Any, List, Optional, Tuple
+
 
 class RedisManager:
     # Default locations to search for redis.conf
-    CONFIG_PATHS = [
-        "/etc/redis/redis.conf",
-        "/usr/local/etc/redis.conf",
-        "/opt/homebrew/etc/redis.conf" # Mac
-    ]
+    CONFIG_PATHS = ["/etc/redis/redis.conf", "/usr/local/etc/redis.conf", "/opt/homebrew/etc/redis.conf"]  # Mac
 
     _client: Optional[redis.Redis] = None
 
     @classmethod
-    def get_client(cls, host='localhost', port=6379, password=None, db=0) -> redis.Redis:
+    def get_service_status(cls) -> Dict[str, Any]:
+        """Check if Redis service is running"""
+        try:
+            # Try systemctl first (Linux)
+            result = subprocess.run(
+                ["systemctl", "is-active", "redis-server"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+            )
+            if result.returncode == 0:
+                running = result.stdout.strip() == "active"
+            else:
+                # Try redis-server service name variant
+                result = subprocess.run(
+                    ["systemctl", "is-active", "redis"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+                )
+                running = result.stdout.strip() == "active"
+
+            # Get version
+            version = None
+            try:
+                ver_result = subprocess.run(
+                    ["redis-server", "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+                )
+                if ver_result.returncode == 0:
+                    # Output: "Redis server v=7.0.0 sha=..."
+                    match = re.search(r"v=(\d+\.\d+\.\d+)", ver_result.stdout)
+                    if match:
+                        version = match.group(1)
+            except:
+                pass
+
+            return {"running": running, "version": version, "error": None}
+        except FileNotFoundError:
+            return {"running": False, "version": None, "error": "systemctl not found"}
+        except Exception as e:
+            return {"running": False, "version": None, "error": str(e)}
+
+    @classmethod
+    def control_service(cls, action: str) -> Tuple[bool, str]:
+        """Start, stop, or restart Redis service"""
+        service_names = ["redis-server", "redis"]
+
+        for service in service_names:
+            try:
+                result = subprocess.run(
+                    ["systemctl", action, service], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+                )
+                if result.returncode == 0:
+                    return True, f"Redis service {action}ed successfully"
+            except:
+                continue
+
+        return False, f"Failed to {action} Redis service"
+
+    @classmethod
+    def get_client(cls, host="localhost", port=6379, password=None, db=0) -> redis.Redis:
         # For now, we assume local redis.
         # In future, we might read connection details from the config we parse.
         # But to parse config, we don't need a client.
@@ -65,10 +117,10 @@ class RedisManager:
         pattern = re.compile(r'^\s*([^\s#]+)\s+(?:"((?:[^"\\]|\\.)*)"|\'((?:[^\'\\]|\\.)*)\'|([^#\r\n]+))')
 
         try:
-            with open(path, 'r') as f:
+            with open(path, "r") as f:
                 for line in f:
                     line = line.strip()
-                    if not line or line.startswith('#'):
+                    if not line or line.startswith("#"):
                         continue
 
                     match = pattern.match(line)
@@ -95,7 +147,7 @@ class RedisManager:
             return False
 
         try:
-            with open(path, 'r') as f:
+            with open(path, "r") as f:
                 lines = f.readlines()
         except Exception:
             return False
@@ -104,13 +156,13 @@ class RedisManager:
         updated_keys = set()
 
         # Regex to match keys for replacement (simpler than full parse)
-        key_pattern = re.compile(r'^\s*([^\s#]+)\s+')
+        key_pattern = re.compile(r"^\s*([^\s#]+)\s+")
 
         for line in lines:
             match = key_pattern.match(line)
             replaced = False
 
-            if match and not line.strip().startswith('#'):
+            if match and not line.strip().startswith("#"):
                 key = match.group(1)
                 if key in updates:
                     # Replace the entire line with new key value
@@ -138,7 +190,7 @@ class RedisManager:
                     new_lines.append(f"{key} {s_val}\n")
 
         try:
-            with open(path, 'w') as f:
+            with open(path, "w") as f:
                 f.writelines(new_lines)
             return True
         except Exception as e:
@@ -160,7 +212,7 @@ class RedisManager:
         # Info 'keyspace' gives usage
         info = cls.get_info()
         # info["db0"] = {'keys': 1, ...}
-        return {k: v['keys'] for k, v in info.items() if k.startswith('db')}
+        return {k: v["keys"] for k, v in info.items() if k.startswith("db")}
 
     @classmethod
     def scan_keys(cls, pattern="*", count=100) -> List[str]:
@@ -174,16 +226,16 @@ class RedisManager:
         type_ = client.type(key)
         ttl = client.ttl(key)
         val = None
-        if type_ == 'string':
+        if type_ == "string":
             val = client.get(key)
-        elif type_ == 'list':
+        elif type_ == "list":
             val = client.lrange(key, 0, -1)
-        elif type_ == 'set':
+        elif type_ == "set":
             val = list(client.smembers(key))
-        elif type_ == 'hash':
+        elif type_ == "hash":
             val = client.hgetall(key)
-        elif type_ == 'zset':
-             val = client.zrange(key, 0, -1, withscores=True)
+        elif type_ == "zset":
+            val = client.zrange(key, 0, -1, withscores=True)
 
         return {"key": key, "type": type_, "ttl": ttl, "value": val}
 

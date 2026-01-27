@@ -13,6 +13,7 @@ class DeploymentConfig(SQLModel, table=True):
     supervisor_process: Optional[str] = None  # Name of process to restart
     post_deploy_command: Optional[str] = None  # Shell command to run after pull
     run_as_user: Optional[str] = Field(default="root")  # User to run build command
+    notification_emails: Optional[str] = None  # Comma-separated emails for notifications
     last_deployed_at: Optional[datetime] = None
     last_status: Optional[str] = None  # success, failed, running
     last_commit: Optional[str] = None  # Last deployed commit hash
@@ -28,6 +29,7 @@ class DeploymentCreate(SQLModel):
     supervisor_process: Optional[str] = None
     post_deploy_command: Optional[str] = None
     run_as_user: Optional[str] = "root"
+    notification_emails: Optional[str] = None
 
 
 class DeploymentUpdate(SQLModel):
@@ -39,6 +41,7 @@ class DeploymentUpdate(SQLModel):
     supervisor_process: Optional[str] = None
     post_deploy_command: Optional[str] = None
     run_as_user: Optional[str] = None
+    notification_emails: Optional[str] = None
 
 
 class DeploymentRead(SQLModel):
@@ -53,6 +56,7 @@ class DeploymentRead(SQLModel):
     supervisor_process: Optional[str] = None
     post_deploy_command: Optional[str] = None
     run_as_user: Optional[str] = "root"  # User to run build command
+    notification_emails: Optional[str] = None  # Comma-separated emails for notifications
     last_deployed_at: Optional[datetime] = None
     last_status: Optional[str] = None
     last_commit: Optional[str] = None

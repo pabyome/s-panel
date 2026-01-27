@@ -90,3 +90,15 @@ def create_process(config: SupervisorConfigCreate, current_user: CurrentUser):
         raise HTTPException(status_code=500, detail="Failed to create process configuration")
     return {"status": "created"}
 
+
+@router.delete("/processes/{name}")
+def delete_process(name: str, current_user: CurrentUser):
+    \"\"\"Delete a supervisor process configuration\"\"\"
+    # First stop the process if running
+    SupervisorManager.stop_process(name)
+
+    # Delete the config file
+    if not SupervisorManager.delete_config(name):
+        raise HTTPException(status_code=500, detail="Failed to delete process configuration")
+    return {"status": "deleted"}
+

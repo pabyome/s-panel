@@ -94,13 +94,40 @@ def get_log_content(
 
 @router.post("/clear")
 def clear_log_file(
-    content: LogContent, # Reusing model for input: needs path
+    data: dict,  # Expect {"path": "..."}
     current_user: CurrentUser
 ):
-    # We'll expect {"path": "..."} in body. LogContent has 'content', 'lines'.
-    # Let's make a specific schema or just use LogFile input?
-    # Actually, let's create a Request model inline or use Body.
-    pass
+    \"\"\"Clear (truncate) a log file\"\"\"
+    path = data.get("path")
+    if not path:
+        raise HTTPException(status_code=400, detail="Path is required")
+
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="File not found")
+
+    # Security check - only allow log files
+    if not path.endswith(".log"):
+        raise HTTPException(status_code=400, detail="Only .log files can be cleared")
+
+    # Check if file is in allowed directories
+    allowed = False
+    for category, dir_path in LOG_DIRECTORIES.items():
+        if path.startswith(dir_path):
+            allowed = True
+            break
+
+    if not allowed and not path.startswith("/var/log/"):
+        raise HTTPException(status_code=403, detail="Path not in allowed log directories")
+
+    try:
+        with open(path, "w") as f:
+            f.truncate(0)
+        return {"status": "cleared", "message": f"Log file {path} cleared"}
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="Permission denied")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to clear log: {str(e)}")
+
 
 @router.post("/clear_file")
 def clear_file(

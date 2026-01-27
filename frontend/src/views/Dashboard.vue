@@ -312,6 +312,10 @@ const formatUptime = (seconds) => {
     return days > 0 ? `${days}d ${hours}h` : `${hours}h ${minutes}m`
 }
 
+onMounted(() => {
+  connectWebSocket()
+})
+
 onUnmounted(() => {
   if (socket) {
     socket.close()

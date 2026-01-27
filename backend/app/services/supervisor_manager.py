@@ -80,7 +80,7 @@ class SupervisorManager:
             # If stop fails because NOT_RUNNING (fault 70), we proceed.
             # But stop_process catches all exception.
             # Let's verify stop_process behavior.
-            pass # proceed to start
+            pass  # proceed to start
 
             success_start, err_start = cls.start_process(name)
             if success_start:
@@ -98,21 +98,23 @@ class SupervisorManager:
         except Exception as e:
             # Fallback: Try reading file directly if XML-RPC fails (e.g. invalid XML chars)
             try:
-                 with cls._get_rpc() as supervisor:
-                     info = supervisor.supervisor.getProcessInfo(name)
-                     logfile = info.get('stdout_logfile')
+                with cls._get_rpc() as supervisor:
+                    info = supervisor.supervisor.getProcessInfo(name)
+                    logfile = info.get("stdout_logfile")
 
-                     if logfile and os.path.exists(logfile):
-                         # Respect offset/length semantics roughly
-                         # Supervisor offset is from beginning of file.
-                         file_size = os.path.getsize(logfile)
-                         if offset < 0: # Tail mode logic if needed, but usually offset provided is positive or recursive
-                             offset = max(0, file_size + offset)
+                    if logfile and os.path.exists(logfile):
+                        # Respect offset/length semantics roughly
+                        # Supervisor offset is from beginning of file.
+                        file_size = os.path.getsize(logfile)
+                        if (
+                            offset < 0
+                        ):  # Tail mode logic if needed, but usually offset provided is positive or recursive
+                            offset = max(0, file_size + offset)
 
-                         with open(logfile, 'rb') as f:
-                             f.seek(offset)
-                             data = f.read(length)
-                             return data.decode('utf-8', errors='replace')
+                        with open(logfile, "rb") as f:
+                            f.seek(offset)
+                            data = f.read(length)
+                            return data.decode("utf-8", errors="replace")
             except Exception as e2:
                 print(f"Fallback log read failed: {e2}")
 
@@ -163,6 +165,7 @@ class SupervisorManager:
         except Exception as e:
             print(f"Error saving config: {e}")
             return False
+
     @classmethod
     def create_config(cls, config: Dict[str, Any]) -> bool:
         """
@@ -189,10 +192,46 @@ command={config['command']}
 
         numprocs = config.get("numprocs", 1)
         if numprocs > 1:
-             content += f"numprocs={numprocs}\n"
-             content += f"process_name=%(program_name)s_%(process_num)02d\n"
+            content += f"numprocs={numprocs}\n"
+            content += f"process_name=%(program_name)s_%(process_num)02d\n"
 
         content += "stderr_logfile=/var/log/supervisor/%(program_name)s.err.log\n"
         content += "stdout_logfile=/var/log/supervisor/%(program_name)s.out.log\n"
 
         return cls.save_config_content(name, content)
+
+    @classmethod
+    def delete_config(cls, program_name: str) -> bool:
+        """
+        Delete a supervisor configuration file and remove the process.
+        """
+        path = os.path.join(cls.CONF_DIR, f"{program_name}.conf")
+
+        try:
+            # Remove process group from supervisor
+            with cls._get_rpc() as supervisor:
+                try:
+                    supervisor.supervisor.stopProcessGroup(program_name)
+                except:
+                    pass  # May already be stopped
+                try:
+                    supervisor.supervisor.removeProcessGroup(program_name)
+                except xmlrpc.client.Fault as e:
+                    if e.faultCode != 10:  # 10 = BAD_NAME (not found)
+                        print(f"Warning: Could not remove process group: {e}")
+
+                # Reload config to pick up deletion
+                supervisor.supervisor.reloadConfig()
+        except Exception as e:
+            print(f"Warning: RPC error during config deletion: {e}")
+
+        # Delete the config file
+        if os.path.exists(path):
+            try:
+                os.remove(path)
+                return True
+            except Exception as e:
+                print(f"Error deleting config file: {e}")
+                return False
+
+        return True  # File didn't exist, consider it a success

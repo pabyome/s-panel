@@ -3,6 +3,7 @@ from typing import Optional
 from pydantic import field_validator
 import re
 
+
 class WebsiteCreate(SQLModel):
     name: str
     domain: str
@@ -15,7 +16,9 @@ class WebsiteCreate(SQLModel):
         # Relaxed regex: Allow underscores for internal/dev domains
         hostname_regex = r"^(([a-zA-Z0-9_]|[a-zA-Z0-9_][a-zA-Z0-9\-_]*[a-zA-Z0-9_])\.)*([A-Za-z0-9_]|[A-Za-z0-9_][A-Za-z0-9\-_]*[A-Za-z0-9_])$"
         if not re.match(hostname_regex, v):
-            raise ValueError("Invalid domain format. Use format like 'example.com', 'sub.domain.com', or 'staging_site.local'. Underscores are allowed.")
+            raise ValueError(
+                "Invalid domain format. Use format like 'example.com', 'sub.domain.com', or 'staging_site.local'. Underscores are allowed."
+            )
         return v
 
     @field_validator("port")
@@ -25,7 +28,10 @@ class WebsiteCreate(SQLModel):
             raise ValueError("Port must be between 1 and 65535")
         return v
 
+
 class WebsiteRead(SQLModel):
+    model_config = {"from_attributes": True}
+
     id: int
     name: str
     domain: str
@@ -33,3 +39,25 @@ class WebsiteRead(SQLModel):
     project_path: str
     ssl_enabled: bool
     status: str
+
+
+class WebsiteUpdate(SQLModel):
+    """Schema for updating a website - all fields optional"""
+
+    name: Optional[str] = None
+    port: Optional[int] = None
+    project_path: Optional[str] = None
+
+    @field_validator("port")
+    @classmethod
+    def validate_port(cls, v: Optional[int]) -> Optional[int]:
+        if v is not None and not (1 <= v <= 65535):
+            raise ValueError("Port must be between 1 and 65535")
+        return v
+
+
+class NginxConfigUpdate(SQLModel):
+    """Schema for nginx config update with validation option"""
+
+    content: str
+    validate_only: bool = False  # If true, only validate without saving

@@ -6,6 +6,7 @@ from app.models.database import User
 from app.core.config import settings
 from app.core.security import get_password_hash, verify_password
 
+
 class AuthService:
     def __init__(self, session: Session):
         self.session = session
@@ -34,9 +35,9 @@ class AuthService:
 
     def ensure_admin_exists(self):
         if not self.get_user_by_username("admin"):
-            print("Seeding initial admin user...")
             # Check for env var or default
             import os
+
             admin_pwd = os.getenv("ADMIN_PASSWORD", "admin123")
-            print(f"Seeding initial admin user with password: {admin_pwd}")
             self.create_user("admin", admin_pwd)
+            print("Initial admin user created. Set ADMIN_PASSWORD env var for custom password.")

@@ -1,11 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, BackgroundTasks, Header
+from fastapi import APIRouter, Depends, HTTPException, Request, BackgroundTasks, Header, WebSocket, WebSocketDisconnect
+from starlette.websockets import WebSocketState
 from sqlmodel import Session, select
-from typing import List
+from typing import List, Dict, Set
 import uuid
 import secrets
 import hmac
 import hashlib
 import logging
+import asyncio
 from datetime import datetime
 
 from app.models.database import engine
@@ -17,6 +19,70 @@ from app.services.supervisor_manager import SupervisorManager
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+# WebSocket connections for live deployment logs
+deployment_connections: Dict[str, Set[WebSocket]] = {}
+
+
+@router.websocket("/ws/{deployment_id}")
+async def deployment_logs_ws(websocket: WebSocket, deployment_id: str):
+    """WebSocket endpoint for streaming deployment logs in real-time"""
+    await websocket.accept()
+
+    # Add connection to the set for this deployment
+    if deployment_id not in deployment_connections:
+        deployment_connections[deployment_id] = set()
+    deployment_connections[deployment_id].add(websocket)
+
+    logger.info(f"WebSocket connected for deployment {deployment_id}")
+
+    try:
+        # Send current logs immediately
+        with Session(engine) as session:
+            deployment = session.get(DeploymentConfig, uuid.UUID(deployment_id))
+            if deployment:
+                await websocket.send_json(
+                    {"type": "initial", "logs": deployment.last_logs or "", "status": deployment.last_status}
+                )
+
+        # Keep connection open and wait for updates
+        while True:
+            try:
+                # Ping/pong to keep connection alive
+                data = await asyncio.wait_for(websocket.receive_text(), timeout=30.0)
+                if data == "ping":
+                    await websocket.send_text("pong")
+            except asyncio.TimeoutError:
+                # Send heartbeat
+                await websocket.send_json({"type": "heartbeat"})
+    except WebSocketDisconnect:
+        logger.info(f"WebSocket disconnected for deployment {deployment_id}")
+    except Exception as e:
+        logger.exception(f"WebSocket error for deployment {deployment_id}: {e}")
+    finally:
+        # Remove connection from set
+        if deployment_id in deployment_connections:
+            deployment_connections[deployment_id].discard(websocket)
+            if not deployment_connections[deployment_id]:
+                del deployment_connections[deployment_id]
+
+
+async def broadcast_deployment_update(deployment_id: str, logs: str, status: str):
+    """Broadcast log updates to all connected WebSocket clients for a deployment"""
+    if deployment_id not in deployment_connections:
+        return
+
+    dead_connections = set()
+    for ws in deployment_connections[deployment_id]:
+        try:
+            if ws.client_state == WebSocketState.CONNECTED:
+                await ws.send_json({"type": "update", "logs": logs, "status": status})
+        except Exception:
+            dead_connections.add(ws)
+
+    # Clean up dead connections
+    for ws in dead_connections:
+        deployment_connections[deployment_id].discard(ws)
 
 
 @router.post("/", response_model=DeploymentRead)
@@ -111,6 +177,23 @@ async def manual_trigger(
     return {"status": "deployment_queued", "message": "Deployment started"}
 
 
+@router.post("/{deployment_id}/logs/clear")
+def clear_deployment_logs(
+    deployment_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    current_user: CurrentUser = None,
+):
+    """Clear the logs for a deployment"""
+    deployment = session.get(DeploymentConfig, deployment_id)
+    if not deployment:
+        raise HTTPException(status_code=404, detail="Deployment not found")
+
+    deployment.last_logs = None
+    session.add(deployment)
+    session.commit()
+    return {"status": "cleared"}
+
+
 @router.delete("/{deployment_id}")
 def delete_deployment(
     deployment_id: uuid.UUID,
@@ -130,6 +213,8 @@ def delete_deployment(
 
 async def handle_deploy_background(deployment_id: uuid.UUID):
     """Background task to handle the actual deployment."""
+    deployment_id_str = str(deployment_id)
+
     with Session(engine) as session:
         deployment = session.get(DeploymentConfig, deployment_id)
         if not deployment:
@@ -140,36 +225,67 @@ async def handle_deploy_background(deployment_id: uuid.UUID):
 
         # Mark as running
         deployment.last_status = "running"
+        deployment.last_logs = "Starting deployment...\n"
         session.add(deployment)
         session.commit()
 
+        # Broadcast initial status
         try:
-            def update_logs(current_logs):
-                # We need to use a new session or refresh carefully to avoid conflicts/detached instances?
-                # Actually we are in a session context.
-                # But to commit intermediate results, we should careful.
-                # Simpler: just set the field and commit.
+            asyncio.create_task(broadcast_deployment_update(deployment_id_str, deployment.last_logs, "running"))
+        except:
+            pass
+
+        try:
+
+            async def update_logs(current_logs):
+                # Update database
                 deployment.last_logs = current_logs
                 session.add(deployment)
                 session.commit()
-                # session.refresh(deployment) # Optional, but good to keep in sync
+
+                # Broadcast to WebSocket clients
+                try:
+                    await broadcast_deployment_update(deployment_id_str, current_logs, "running")
+                except Exception as e:
+                    logger.warning(f"Failed to broadcast log update: {e}")
+
+            # Wrap sync callback for GitService
+            def sync_update_logs(current_logs):
+                try:
+                    loop = asyncio.get_event_loop()
+                    if loop.is_running():
+                        asyncio.create_task(update_logs(current_logs))
+                    else:
+                        loop.run_until_complete(update_logs(current_logs))
+                except:
+                    # Fallback: just update DB
+                    deployment.last_logs = current_logs
+                    session.add(deployment)
+                    session.commit()
 
             success, logs, commit_hash = GitService.pull_and_deploy(
                 deployment.project_path,
                 deployment.branch,
                 deployment.post_deploy_command,
                 deployment.run_as_user,
-                log_callback=update_logs
+                log_callback=sync_update_logs,
             )
 
             # Update Status
-            deployment.last_status = "success" if success else "failed"
+            final_status = "success" if success else "failed"
+            deployment.last_status = final_status
             deployment.last_deployed_at = datetime.utcnow()
             deployment.last_logs = logs
             deployment.last_commit = commit_hash
             deployment.deploy_count = (deployment.deploy_count or 0) + 1
             session.add(deployment)
             session.commit()
+
+            # Broadcast final status
+            try:
+                asyncio.create_task(broadcast_deployment_update(deployment_id_str, logs, final_status))
+            except:
+                pass
 
             # Restart Supervisor if needed and successful
             if success and deployment.supervisor_process:
@@ -180,6 +296,7 @@ async def handle_deploy_background(deployment_id: uuid.UUID):
 
             # Send Notification
             from app.services.email_service import EmailService
+
             subject = f"Deployment {deployment.name}: {'Successful' if success else 'Failed'}"
             body = f"""
 Deployment for {deployment.name} has completed.
@@ -191,30 +308,42 @@ Time: {datetime.utcnow()}
 Logs snippet:
 {logs[-500:] if logs else 'No logs'}
             """
-            EmailService.send_email(subject, body)
+            # Parse notification emails for this deployment
+            recipients = (
+                [e.strip() for e in deployment.notification_emails.split(",") if e.strip()]
+                if deployment.notification_emails
+                else None
+            )
+            EmailService.send_email(subject, body, recipients)
 
         except Exception as e:
             logger.exception(f"Deployment {deployment.name} failed with exception")
+            error_logs = f"Unexpected error: {str(e)}"
             deployment.last_status = "failed"
-            deployment.last_logs = f"Unexpected error: {str(e)}"
+            deployment.last_logs = error_logs
             deployment.last_deployed_at = datetime.utcnow()
             session.add(deployment)
             session.commit()
+
+            # Broadcast error
+            try:
+                asyncio.create_task(broadcast_deployment_update(deployment_id_str, error_logs, "failed"))
+            except:
+                pass
 
             # Send Notification (Exception case)
             from app.services.email_service import EmailService
+
+            recipients = (
+                [e.strip() for e in deployment.notification_emails.split(",") if e.strip()]
+                if deployment.notification_emails
+                else None
+            )
             EmailService.send_email(
                 f"Deployment {deployment.name}: Failed (Exception)",
-                f"Deployment failed with error: {str(e)}"
+                f"Deployment failed with error: {str(e)}",
+                recipients,
             )
-
-        except Exception as e:
-            logger.exception(f"Deployment {deployment.name} failed with exception")
-            deployment.last_status = "failed"
-            deployment.last_logs = f"Unexpected error: {str(e)}"
-            deployment.last_deployed_at = datetime.utcnow()
-            session.add(deployment)
-            session.commit()
 
 
 @router.post("/webhook/{deployment_id}")
