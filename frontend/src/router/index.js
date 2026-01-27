@@ -28,6 +28,7 @@ const routes = [
       { path: 'backups', name: 'backups', component: () => import('../views/Backups.vue') },
       { path: 'settings', name: 'settings', component: () => import('../views/Settings.vue') },
       { path: 'logs', name: 'logs', component: () => import('../views/Logs.vue') },
+      { path: 'databases', name: 'databases', component: () => import('../views/Databases.vue') },
     ]
   },
   {

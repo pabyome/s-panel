@@ -4,7 +4,7 @@ import uvicorn
 from sqlmodel import Session
 from app.models.database import create_db_and_tables, engine
 from app.services.auth_service import AuthService
-from app.api.v1 import auth, monitor, websites, firewall, supervisor, system, deployments, redis, cron, backups, logs
+from app.api.v1 import auth, monitor, websites, firewall, supervisor, system, deployments, redis, cron, backups, logs, postgres
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import os
@@ -53,6 +53,7 @@ app.include_router(redis.router, prefix="/api/v1/redis", tags=["redis"])
 app.include_router(cron.router, prefix="/api/v1/cron", tags=["cron"])
 app.include_router(backups.router, prefix="/api/v1/backups", tags=["backups"])
 app.include_router(logs.router, prefix="/api/v1/logs", tags=["logs"])
+app.include_router(postgres.router, prefix="/api/v1/postgres", tags=["postgres"])
 
 
 # Serve Frontend (if built)
