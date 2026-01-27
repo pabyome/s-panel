@@ -20,22 +20,41 @@ def get_processes(current_user: CurrentUser):
 
 @router.post("/processes/{name}/start")
 def start_process(name: str, current_user: CurrentUser):
-    if not SupervisorManager.start_process(name):
-        raise HTTPException(status_code=500, detail="Failed to start process")
+    success, error = SupervisorManager.start_process(name)
+    if not success:
+        # Check if error indicates BAD_NAME (404) or ALREADY_STARTED (400) vs System Error
+        # XMLRPC faults stringify to <Fault Code: 'Msg'>
+        detail = f"Failed to start process: {error}"
+        status = 500
+        if "BAD_NAME" in str(error):
+            status = 404
+        elif "ALREADY_STARTED" in str(error):
+            status = 400
+
+        raise HTTPException(status_code=status, detail=detail)
     return {"status": "started"}
 
 
 @router.post("/processes/{name}/stop")
 def stop_process(name: str, current_user: CurrentUser):
-    if not SupervisorManager.stop_process(name):
-        raise HTTPException(status_code=500, detail="Failed to stop process")
+    success, error = SupervisorManager.stop_process(name)
+    if not success:
+        # Ignore NOT_RUNNING errors? Usually UI handles state.
+        detail = f"Failed to stop process: {error}"
+        status = 500
+        if "BAD_NAME" in str(error):
+            status = 404
+        elif "NOT_RUNNING" in str(error):
+             status = 400
+        raise HTTPException(status_code=status, detail=detail)
     return {"status": "stopped"}
 
 
 @router.post("/processes/{name}/restart")
 def restart_process(name: str, current_user: CurrentUser):
-    if not SupervisorManager.restart_process(name):
-        raise HTTPException(status_code=500, detail="Failed to restart process")
+    success, error = SupervisorManager.restart_process(name)
+    if not success:
+        raise HTTPException(status_code=500, detail=f"Failed to restart process: {error}")
     return {"status": "restarted"}
 
 

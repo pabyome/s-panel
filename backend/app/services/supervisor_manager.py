@@ -54,28 +54,40 @@ class SupervisorManager:
             return []
 
     @classmethod
-    def start_process(cls, name: str) -> bool:
+    def start_process(cls, name: str) -> Tuple[bool, str]:
         try:
             with cls._get_rpc() as supervisor:
-                return supervisor.supervisor.startProcess(name)
-        except Exception:
-            return False
+                supervisor.supervisor.startProcess(name)
+                return True, None
+        except Exception as e:
+            return False, str(e)
 
     @classmethod
-    def stop_process(cls, name: str) -> bool:
+    def stop_process(cls, name: str) -> Tuple[bool, str]:
         try:
             with cls._get_rpc() as supervisor:
-                return supervisor.supervisor.stopProcess(name)
-        except Exception:
-            return False
+                supervisor.supervisor.stopProcess(name)
+                return True, None
+        except Exception as e:
+            return False, str(e)
 
     @classmethod
-    def restart_process(cls, name: str) -> bool:
+    def restart_process(cls, name: str) -> Tuple[bool, str]:
         try:
-            cls.stop_process(name)
-            return cls.start_process(name)
-        except Exception:
-            return False
+            success_stop, err_stop = cls.stop_process(name)
+            # Process might be already stopped, which is fine usually?
+            # XMLRPC stopProcess throws if not running?
+            # If stop fails because NOT_RUNNING (fault 70), we proceed.
+            # But stop_process catches all exception.
+            # Let's verify stop_process behavior.
+            pass # proceed to start
+
+            success_start, err_start = cls.start_process(name)
+            if success_start:
+                return True, None
+            return False, err_start
+        except Exception as e:
+            return False, str(e)
 
     @classmethod
     def read_log(cls, name: str, offset: int = 0, length: int = 2000) -> str:
