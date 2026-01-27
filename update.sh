@@ -11,6 +11,8 @@ echo "╚═══════════════════════�
 
 # 1. Pull latest changes
 echo "▶ Pulling latest changes from git..."
+# Fix for "dubious ownership" if running as root in user-owned dir
+git config --global --add safe.directory $(pwd)
 git pull origin main
 
 # 2. Update Backend Dependencies

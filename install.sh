@@ -35,6 +35,9 @@ fi
 chown -R www:www-data /www
 # Set permissions: 775 (Owner rwx, Group rwx, Others rx)
 chmod -R 775 /www
+
+# Ensure git trusts this directory (fix for dubious ownership when running as root)
+git config --global --add safe.directory /www/s-panel
 # Add current user to www-data group if running as non-root (unlikely here as we check EUID 0, but good practice if testing)
 # or if there is a specific admin user.
 
