@@ -5,8 +5,9 @@ from typing import Dict, Any
 class SystemMonitor:
     @staticmethod
     def get_cpu_stats() -> Dict[str, Any]:
+        # interval=0 is non-blocking. It returns usage since the last call.
         return {
-            "percent": psutil.cpu_percent(interval=1),
+            "percent": psutil.cpu_percent(interval=0),
             "count": psutil.cpu_count(),
         }
 

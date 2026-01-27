@@ -142,18 +142,53 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
-import axios from 'axios'
 import CircularGauge from '../components/CircularGauge.vue'
+import { useAuthStore } from '../stores/auth'
 
 const stats = ref(null)
-let interval = null
+const authStore = useAuthStore()
+let socket = null
+let reconnectTimer = null
 
-const fetchStats = async () => {
-  try {
-    const response = await axios.get('/api/v1/monitor/stats')
-    stats.value = response.data
-  } catch (error) {
-    console.error('Failed to fetch stats:', error)
+const connectWebSocket = () => {
+  // Determine protocol (ws for http, wss for https)
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  const host = window.location.hostname
+  // If running via Vite proxy (local dev), port might need adjustment, but usually proxy handles it.
+  // In production, Nginx proxies /api/v1/monitor/ws -> backend:8000
+  // Note: Vite proxy configuration usually handles the upgrade if target is set correctly.
+  
+  // Construct URL. If we are in dev mode (port 5173), we likely rely on Vite proxy to /api.
+  // If we are in prod, we are on same origin.
+  // Let's use relative path if possible, but WS constructor needs absolute.
+  const port = window.location.port ? `:${window.location.port}` : ''
+  const wsUrl = `${protocol}//${host}${port}/api/v1/monitor/ws`
+
+  console.log('Connecting to WebSocket:', wsUrl)
+
+  socket = new WebSocket(wsUrl)
+
+  socket.onopen = () => {
+    console.log('WebSocket Connected')
+  }
+
+  socket.onmessage = (event) => {
+    try {
+      stats.value = JSON.parse(event.data)
+    } catch (e) {
+      console.error('Error parsing WS data:', e)
+    }
+  }
+
+  socket.onclose = (event) => {
+    console.log('WebSocket Disconnected', event.reason)
+    // Attempt reconnect after 3 seconds
+    reconnectTimer = setTimeout(connectWebSocket, 3000)
+  }
+
+  socket.onerror = (error) => {
+    console.error('WebSocket Error:', error)
+    socket.close()
   }
 }
 
@@ -167,11 +202,17 @@ const formatBytes = (bytes, decimals = 1) => {
 }
 
 onMounted(() => {
-  fetchStats()
-  interval = setInterval(fetchStats, 2000)
+  // Initial polling check or just start WS?
+  // WS is better.
+  connectWebSocket()
 })
 
 onUnmounted(() => {
-  if (interval) clearInterval(interval)
+  if (socket) {
+    socket.close()
+  }
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer)
+  }
 })
 </script>
