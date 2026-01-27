@@ -11,6 +11,10 @@ import os
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Run auto-migrations first to ensure schema is correct for models
+    from app.core.migrations import run_migrations
+    run_migrations()
+
     create_db_and_tables()
     with Session(engine) as session:
         auth_service = AuthService(session)

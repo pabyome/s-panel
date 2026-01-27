@@ -98,9 +98,18 @@ def check_for_updates(current_user: CurrentUser):
 def apply_update(current_user: CurrentUser):
     # This triggers the update script. usage: nohup ./update.sh &
     # We run it in background because it will kill the API.
-    script_path = os.path.abspath("update.sh")
+
+    # Resolve path relative to this file: .../backend/app/api/v1/system.py
+    # Access root: ../../../../update.sh
+    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+    script_path = os.path.join(base_dir, "update.sh")
+
+    # Fallback to CWD check if the above logic fails (e.g. strange install)
     if not os.path.exists(script_path):
-        raise HTTPException(status_code=404, detail="Update script not found")
+        script_path = os.path.abspath("update.sh")
+
+    if not os.path.exists(script_path):
+        raise HTTPException(status_code=404, detail=f"Update script not found at {script_path}")
 
     try:
         # Run in independent process
