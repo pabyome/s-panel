@@ -201,7 +201,7 @@
     </div>
 
     <!-- Help Modal -->
-    <BaseModal :isOpen="showHelp" @close="showHelp = false" title="Supervisor Setup Guide">
+    <BaseModal :isOpen="showHelp" @close="showHelp = false" title="Supervisor Setup Guide" :showFooter="false">
       <div class="space-y-5">
         <div class="rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 p-5 ring-1 ring-blue-100">
           <h4 class="text-sm font-semibold text-blue-900">Enable XML-RPC for Remote Management</h4>
@@ -251,7 +251,7 @@ port = 127.0.0.1:9001</pre>
     </BaseModal>
 
     <!-- Create Service Modal -->
-    <BaseModal :isOpen="isCreateModalOpen" @close="isCreateModalOpen = false" title="Add New Service">
+    <BaseModal :isOpen="isCreateModalOpen" @close="isCreateModalOpen = false" title="Add New Service" :showFooter="false">
       <form @submit.prevent="createProcess" class="space-y-5">
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-2">Service Name</label>
