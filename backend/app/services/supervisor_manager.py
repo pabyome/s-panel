@@ -1,6 +1,8 @@
 import xmlrpc.client
 import os
-from typing import List, Dict, Any
+import socket
+from typing import List, Dict, Any, Tuple
+
 
 class SupervisorManager:
     RPC_URL = "http://localhost:9001/RPC2"
@@ -11,10 +13,42 @@ class SupervisorManager:
         return xmlrpc.client.ServerProxy(cls.RPC_URL)
 
     @classmethod
+    def is_running(cls) -> Dict[str, Any]:
+        """Check if supervisor is running and RPC is accessible"""
+        try:
+            with cls._get_rpc() as supervisor:
+                state = supervisor.supervisor.getState()
+                # state returns {'statecode': 1, 'statename': 'RUNNING'}
+                return {
+                    "running": True,
+                    "state": state.get("statename", "UNKNOWN"),
+                    "version": supervisor.supervisor.getSupervisorVersion(),
+                    "error": None,
+                }
+        except socket.error as e:
+            return {
+                "running": False,
+                "state": "STOPPED",
+                "version": None,
+                "error": "Supervisor is not running or XML-RPC not enabled on port 9001",
+            }
+        except Exception as e:
+            return {"running": False, "state": "ERROR", "version": None, "error": str(e)}
+
+    @classmethod
     def get_processes(cls) -> List[Dict[str, Any]]:
         try:
             with cls._get_rpc() as supervisor:
-                return supervisor.supervisor.getAllProcessInfo()
+                processes = supervisor.supervisor.getAllProcessInfo()
+                # Enrich with uptime calculation
+                for proc in processes:
+                    if proc.get("start", 0) > 0 and proc.get("statename") == "RUNNING":
+                        import time
+
+                        proc["uptime_seconds"] = int(time.time()) - proc["start"]
+                    else:
+                        proc["uptime_seconds"] = 0
+                return processes
         except Exception as e:
             print(f"Supervisor RPC Error: {e}")
             return []
@@ -73,8 +107,8 @@ class SupervisorManager:
                 f.write(content)
             # Reload supervisor to apply changes
             with cls._get_rpc() as supervisor:
-                 supervisor.supervisor.reloadConfig()
-                 supervisor.supervisor.addProcessGroup(program_name) # Ensure it's added if new
+                supervisor.supervisor.reloadConfig()
+                supervisor.supervisor.addProcessGroup(program_name)  # Ensure it's added if new
             return True
         except Exception as e:
             print(f"Error saving config: {e}")

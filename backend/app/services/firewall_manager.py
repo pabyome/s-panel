@@ -1,77 +1,88 @@
 import subprocess
 import re
-from typing import List
+from typing import List, Tuple
 from app.schemas.firewall import FirewallRuleRead, FirewallRuleCreate
+
 
 class FirewallManager:
     @staticmethod
-    def _run_command(command: list[str]) -> str:
+    def _run_command(command: list[str]) -> Tuple[str, str, int]:
+        """Run command and return (stdout, stderr, return_code)"""
         try:
-            result = subprocess.run(command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            return result.stdout
-        except subprocess.CalledProcessError as e:
-            print(f"Firewall command failed: {e}")
-            return ""
+            result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=30)
+            return result.stdout, result.stderr, result.returncode
+        except subprocess.TimeoutExpired:
+            return "", "Command timed out", 1
+        except Exception as e:
+            return "", str(e), 1
+
+    @classmethod
+    def get_ufw_status(cls) -> dict:
+        """Get UFW status (active/inactive)"""
+        stdout, stderr, code = cls._run_command(["ufw", "status"])
+        if code != 0:
+            return {"active": False, "error": stderr or "UFW not available"}
+
+        is_active = "Status: active" in stdout
+        return {"active": is_active, "error": None}
 
     @classmethod
     def get_status(cls) -> List[FirewallRuleRead]:
-        # ufw status numbered output parsing
-        # Example:
-        # Status: active
-        #      To                         Action      From
-        #      --                         ------      ----
-        # [ 1] 22/tcp                     ALLOW IN    Anywhere
-        # [ 2] 3000                       ALLOW IN    Anywhere
-
-        output = cls._run_command(["ufw", "status", "numbered"])
+        """Get list of UFW rules"""
+        stdout, stderr, code = cls._run_command(["ufw", "status", "numbered"])
         rules = []
-        if not output or "Status: inactive" in output:
+
+        if code != 0 or not stdout or "Status: inactive" in stdout:
             return []
 
-        lines = output.splitlines()
+        lines = stdout.splitlines()
         for line in lines:
-            # Parse line like: "[ 1] 22/tcp ALLOW IN Anywhere"
-            # Regex to capture: ID, To, Action, From
-            match = re.search(r"\[\s*(\d+)\]\s+(.*?)\s+(ALLOW|DENY)\s+(.*?)\s+(.*)", line)
-            # Re-check regex for simple cases
-            # Let's try simpler split.
-            if line.startswith("["):
-                parts = line.split()
-                # parts example: ['[', '1]', '22/tcp', 'ALLOW', 'IN', 'Anywhere']
-                # or ['[', '10]', ...]
-                try:
-                    # Filter out '[' and ']' or combine them
-                    clean_parts = [p for p in parts if p not in ['[', ']']]
-                    # Fix ID parsing if it was split like '[' '1]'
-                    id_str = parts[1].replace(']', '')
+            # Parse line like: "[ 1] 22/tcp                     ALLOW IN    Anywhere"
+            if not line.strip().startswith("["):
+                continue
 
-                    # Basic reconstruction
-                    rule_id = int(id_str)
-                    to_port = parts[2]
-                    action = parts[3] # ALLOW
-                    from_ip = parts[5] # Anywhere (skip IN/OUT direction for MVP or assume IN)
+            # Use regex to properly parse the line
+            # Format: [ 1] 22/tcp   ALLOW IN    Anywhere
+            match = re.match(r"\[\s*(\d+)\]\s+(\S+)\s+(ALLOW|DENY)\s+(IN|OUT)?\s*(.*)", line.strip())
+            if match:
+                rule_id = int(match.group(1))
+                to_port = match.group(2)
+                action = match.group(3)
+                from_ip = match.group(5).strip() or "Anywhere"
 
-                    rules.append(FirewallRuleRead(
-                        id=rule_id,
-                        to_port=to_port,
-                        action=action,
-                        from_ip=from_ip
-                    ))
-                except (IndexError, ValueError):
-                    continue
+                rules.append(FirewallRuleRead(id=rule_id, to_port=to_port, action=action, from_ip=from_ip))
         return rules
 
     @classmethod
-    def add_rule(cls, rule: FirewallRuleCreate) -> bool:
-        # ufw allow 80/tcp
-        cmd = ["ufw", rule.action, f"{rule.port}/{rule.protocol}"]
-        output = cls._run_command(cmd)
-        return "Rule added" in output or "Skipping" in output
+    def add_rule(cls, rule: FirewallRuleCreate) -> Tuple[bool, str]:
+        """Add a UFW rule. Returns (success, message)"""
+        # Build the command: ufw allow 80/tcp or ufw deny 80/tcp
+        action = rule.action.lower()
+        if action not in ["allow", "deny"]:
+            return False, f"Invalid action: {action}"
+
+        port_spec = f"{rule.port}/{rule.protocol.lower()}"
+        cmd = ["ufw", action, port_spec]
+
+        stdout, stderr, code = cls._run_command(cmd)
+
+        # UFW returns 0 on success and outputs "Rule added" or "Skipping adding existing rule"
+        if code == 0:
+            if "Rule added" in stdout or "Skipping" in stdout or "Rules updated" in stdout:
+                return True, stdout.strip()
+            # Sometimes UFW returns 0 but with different message
+            return True, stdout.strip() or "Rule processed"
+
+        return False, stderr.strip() or stdout.strip() or "Unknown error"
 
     @classmethod
-    def delete_rule(cls, rule_id: int) -> bool:
-        # ufw --force delete <id>
+    def delete_rule(cls, rule_id: int) -> Tuple[bool, str]:
+        """Delete a UFW rule by ID. Returns (success, message)"""
         # --force is needed to avoid "Proceed with operation (y|n)?" interaction
         cmd = ["ufw", "--force", "delete", str(rule_id)]
-        output = cls._run_command(cmd)
-        return "Rule deleted" in output
+        stdout, stderr, code = cls._run_command(cmd)
+
+        if code == 0 and ("deleted" in stdout.lower() or "Rule deleted" in stdout):
+            return True, "Rule deleted"
+
+        return False, stderr.strip() or stdout.strip() or "Failed to delete rule"
