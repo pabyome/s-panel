@@ -126,8 +126,6 @@ const refreshLog = async () => {
         logContent.value = `Error loading log: ${e.response?.data?.detail || e.message}`
     } finally {
         loading.value = false
-    } finally {
-        loading.value = false
     }
 }
 
