@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import Layout from '../layout/Layout.vue'
 import Dashboard from '../views/Dashboard.vue'
 import Websites from '../views/Websites.vue'
 import Security from '../views/Security.vue'
@@ -7,22 +8,28 @@ import SupervisorDetail from '../views/SupervisorDetail.vue'
 import Deployments from '../views/Deployments.vue'
 import Redis from '../views/Redis.vue'
 import CronJobs from '../views/CronJobs.vue'
-
-// Placeholder for Dashboard if not created yet (User summary says "Implement Dashboard... [x]" but I didn't see the file creation in this session history?
-// Wait, I see "Implement Dashboard with Real-time Monitor Data" was checked in task.md.
-// Let's assume Dashboard.vue exists or I'll create a placeholder.
-// Actually, checking previous history, "Implement Dashboard... [x]" might have been marked but I don't see the file "Dashboard.vue" created in THIS session.
-// I will create a simple Dashboard placeholder if it's missing to avoid import errors.
+import Login from '../views/Login.vue' // Assuming Login exists, if not I'll leave it out or check
 
 const routes = [
-  { path: '/', component: Dashboard },
-  { path: '/websites', component: Websites },
-  { path: '/security', component: Security },
-  { path: '/supervisor', component: Supervisor },
-  { path: '/supervisor/:name', component: SupervisorDetail },
-  { path: '/deployments', component: Deployments },
-  { path: '/redis', component: Redis },
-  { path: '/cron', component: CronJobs },
+  {
+    path: '/',
+    component: Layout,
+    children: [
+      { path: '', name: 'dashboard', component: Dashboard },
+      { path: 'websites', name: 'websites', component: Websites },
+      { path: 'security', name: 'security', component: Security },
+      { path: 'supervisor', name: 'supervisor', component: Supervisor },
+      { path: 'supervisor/:name', name: 'supervisor-detail', component: SupervisorDetail },
+      { path: 'deployments', name: 'deployments', component: Deployments },
+      { path: 'redis', name: 'redis', component: Redis },
+      { path: 'cron', name: 'cron', component: CronJobs },
+    ]
+  },
+  {
+    path: '/login',
+    name: 'login',
+    component: Login
+  }
 ]
 
 const router = createRouter({

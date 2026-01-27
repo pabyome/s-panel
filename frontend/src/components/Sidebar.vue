@@ -22,15 +22,28 @@
 </template>
 
 <script setup>
-import { HomeIcon, ServerIcon, ShieldCheckIcon, Cog6ToothIcon } from '@heroicons/vue/24/outline'
+import { 
+  HomeIcon, 
+  ServerIcon, 
+  ShieldCheckIcon, 
+  CpuChipIcon, 
+  CloudArrowUpIcon, 
+  CircleStackIcon, 
+  ClockIcon,
+  Cog6ToothIcon 
+} from '@heroicons/vue/24/outline'
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 
 const route = useRoute()
 
 const navigation = computed(() => [
-  { name: 'Dashboard', href: '/', icon: HomeIcon, current: route.name === 'dashboard' },
-  { name: 'Websites', href: '/websites', icon: ServerIcon, current: route.name === 'websites' },
-  { name: 'Security', href: '/security', icon: ShieldCheckIcon, current: route.name === 'security' },
+  { name: 'Dashboard', href: '/', icon: HomeIcon, current: route.path === '/' },
+  { name: 'Websites', href: '/websites', icon: ServerIcon, current: route.path.startsWith('/websites') },
+  { name: 'Security', href: '/security', icon: ShieldCheckIcon, current: route.path.startsWith('/security') },
+  { name: 'Supervisor', href: '/supervisor', icon: CpuChipIcon, current: route.path.startsWith('/supervisor') },
+  { name: 'Deployments', href: '/deployments', icon: CloudArrowUpIcon, current: route.path.startsWith('/deployments') },
+  { name: 'Redis', href: '/redis', icon: CircleStackIcon, current: route.path.startsWith('/redis') },
+  { name: 'Cron Jobs', href: '/cron', icon: ClockIcon, current: route.path.startsWith('/cron') },
 ])
 </script>
