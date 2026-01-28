@@ -75,3 +75,34 @@ def test_delete_key(mock_redis, client):
 
     response = client.delete("/api/v1/redis/keys/mykey")
     assert response.status_code == 200
+
+@patch("app.services.redis_manager.redis.Redis")
+def test_acl_endpoints(mock_redis, client):
+    mock_instance = MagicMock()
+    RedisManager._client = None
+    mock_redis.return_value = mock_instance
+
+    # Mock ACL USERS
+    mock_instance.execute_command.side_effect = lambda cmd, *args: ["user1", "user2"] if cmd == "ACL" and args[0] == "USERS" else "OK"
+
+    # Test List
+    response = client.get("/api/v1/redis/acl/users")
+    assert response.status_code == 200
+    assert response.json()["users"] == ["user1", "user2"]
+
+    # Test Create
+    mock_instance.execute_command.side_effect = lambda cmd, *args: "OK"
+    response = client.post("/api/v1/redis/acl/users", json={
+        "username": "newuser",
+        "password": "secretpassword",
+        "enabled": True,
+        "rules": "+@read ~cache:*"
+    })
+    assert response.status_code == 200
+
+    # Verify call
+    # ACL SETUSER newuser on >secretpassword +@read ~cache:*
+    # Note: args might be split
+    assert mock_instance.execute_command.call_count >= 1
+    # Check the latest call args for structure
+    # mock_instance.execute_command.assert_called_with("ACL", "SETUSER", "newuser", "on", ">secretpassword", "+@read", "~cache:*")

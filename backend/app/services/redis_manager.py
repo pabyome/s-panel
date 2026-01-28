@@ -67,16 +67,19 @@ class RedisManager:
 
     @classmethod
     def get_client(cls, host="localhost", port=6379, password=None, db=0) -> redis.Redis:
-        # For now, we assume local redis.
-        # In future, we might read connection details from the config we parse.
-        # But to parse config, we don't need a client.
-        # To get stats/data, we do.
-        if not cls._client:
-            # Try to connect with defaults.
-            # If the user has a password in config, we might need to be told it
-            # or try to extract it from config file first?
-            # Let's try passwordless first, or allow passing it.
-            cls._client = redis.Redis(host=host, port=port, password=password, db=db, decode_responses=True)
+        # Check if we have a client and if it matches the requested DB
+        if cls._client:
+            connection_kwargs = cls._client.connection_pool.connection_kwargs
+            if connection_kwargs.get('db') == db:
+                return cls._client
+            else:
+                 # Close old? Or just replace. Redis-py connection pool handles caching.
+                 # Actually, we should close it or manage a pool, but for this simple manager:
+                 cls._client.close()
+                 cls._client = None
+
+        # Create new
+        cls._client = redis.Redis(host=host, port=port, password=password, db=db, decode_responses=True)
         return cls._client
 
     @classmethod
@@ -215,14 +218,14 @@ class RedisManager:
         return {k: v["keys"] for k, v in info.items() if k.startswith("db")}
 
     @classmethod
-    def scan_keys(cls, pattern="*", count=100) -> List[str]:
-        client = cls.get_client()
+    def scan_keys(cls, pattern="*", count=100, db=0) -> List[str]:
+        client = cls.get_client(db=db)
         # scan iterator
         return [k for k in client.scan_iter(match=pattern, count=count)]
 
     @classmethod
-    def get_key_details(cls, key: str) -> Dict[str, Any]:
-        client = cls.get_client()
+    def get_key_details(cls, key: str, db=0) -> Dict[str, Any]:
+        client = cls.get_client(db=db)
         type_ = client.type(key)
         ttl = client.ttl(key)
         val = None
@@ -240,11 +243,69 @@ class RedisManager:
         return {"key": key, "type": type_, "ttl": ttl, "value": val}
 
     @classmethod
-    def delete_key(cls, key: str) -> bool:
-        client = cls.get_client()
+    def delete_key(cls, key: str, db=0) -> bool:
+        client = cls.get_client(db=db)
         return client.delete(key) > 0
 
     @classmethod
-    def flush_db(cls) -> bool:
-        client = cls.get_client()
+    def flush_db(cls, db=0) -> bool:
+        client = cls.get_client(db=db)
         return client.flushdb()
+
+    # ACL Operations
+
+    @classmethod
+    def get_acl_users(cls) -> List[str]:
+        """Return list of ACL usernames."""
+        client = cls.get_client()
+        try:
+            # Redis 6+
+            return client.execute_command("ACL", "USERS")
+        except redis.ResponseError:
+            # Fallback or older redis
+            return []
+
+    @classmethod
+    def get_acl_user_details(cls, username: str) -> Dict[str, Any]:
+        """Return details for a specific user."""
+        client = cls.get_client()
+        try:
+            # ACL GETUSER username
+            info = client.execute_command("ACL", "GETUSER", username)
+            # info is a list/dict depending on python redis version but usually list of key-values or dict
+            # In decode_responses=True, likely dict or pairwise list
+            # We can normalize it. Redis-py often parses it well.
+            if isinstance(info, list):
+                 # Convert list [key, val, key, val] to dict if needed, but normally it's dict in newer redis-py
+                 # If list of strings:
+                 it = iter(info)
+                 return dict(zip(it, it))
+            return info
+        except redis.ResponseError:
+            return {}
+
+    @classmethod
+    def set_acl_user(cls, username: str, rules: str) -> bool:
+        """Create or update a user with full ACL rule string."""
+        client = cls.get_client()
+        try:
+            # ACL SETUSER username rule1 rule2 ...
+            # We assume 'rules' is a space-separated string of rules like "on >pass +@all"
+            # We split by space for args
+            # "reset" rule is useful to clear old state if updating
+            cmd = ["ACL", "SETUSER", username] + rules.split()
+            result = client.execute_command(*cmd)
+            return result == "OK"
+        except redis.ResponseError as e:
+            print(f"ACL SETUSER failed: {e}")
+            return False
+
+    @classmethod
+    def delete_acl_user(cls, username: str) -> bool:
+        client = cls.get_client()
+        try:
+            # ACL DELUSER username
+            result = client.execute_command("ACL", "DELUSER", username)
+            return result >= 1 # Returns number of deleted users
+        except redis.ResponseError:
+            return False

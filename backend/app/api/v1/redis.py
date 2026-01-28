@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Query
 from typing import List, Dict, Any
 from app.api.deps import CurrentUser
 from app.services.redis_manager import RedisManager
-from app.schemas.redis import RedisConfigUpdate, RedisKeyDetail
+from app.schemas.redis import RedisConfigUpdate, RedisKeyDetail, RedisUser
 
 router = APIRouter()
 
@@ -56,27 +56,74 @@ def get_info(current_user: CurrentUser):
 
 
 @router.get("/keys")
-def get_keys(current_user: CurrentUser, pattern: str = "*", count: int = 100):
+def get_keys(current_user: CurrentUser, pattern: str = "*", count: int = 100, db: int = 0):
     # This just returns list of strings
-    return {"keys": RedisManager.scan_keys(pattern, count)}
+    return {"keys": RedisManager.scan_keys(pattern, count, db=db)}
 
 
 @router.get("/keys/{key:path}")  # :path allows slashes in key name
-def get_key_detail(key: str, current_user: CurrentUser):
+def get_key_detail(key: str, current_user: CurrentUser, db: int = 0):
     # Decode double encoding if necessary?
     # Usually wrapper handles it.
-    return RedisManager.get_key_details(key)
+    return RedisManager.get_key_details(key, db=db)
 
 
 @router.delete("/keys/{key:path}")
-def delete_key(key: str, current_user: CurrentUser):
-    if RedisManager.delete_key(key):
+def delete_key(key: str, current_user: CurrentUser, db: int = 0):
+    if RedisManager.delete_key(key, db=db):
         return {"status": "deleted"}
     raise HTTPException(status_code=404, detail="Key not found or could not be deleted")
 
 
 @router.post("/flush")
-def flush_db(current_user: CurrentUser):
-    if RedisManager.flush_db():
+def flush_db(current_user: CurrentUser, db: int = 0):
+    if RedisManager.flush_db(db=db):
         return {"status": "flushed"}
     raise HTTPException(status_code=500, detail="Failed to flush DB")
+
+# ACL Endpoints
+
+@router.get("/acl/users")
+def get_acl_users(current_user: CurrentUser):
+    return {"users": RedisManager.get_acl_users()}
+
+@router.get("/acl/users/{username}")
+def get_acl_user_detail(username: str, current_user: CurrentUser):
+    return RedisManager.get_acl_user_details(username)
+
+@router.post("/acl/users")
+def set_acl_user(user: RedisUser, current_user: CurrentUser):
+    # Construct rules string
+    # Start with reset to ensure clean slate? Or just append?
+    # Usually "reset" is good practice if we want to enforce exactly what's sent,
+    # BUT if we want to patch, we shouldn't.
+    # The schemas suggest "full update".
+
+    # 1. Base rules
+    # If user provided raw 'rules', we use that combined with pass/status
+
+    final_rules = []
+
+    # Enabled/Disabled
+    final_rules.append("on" if user.enabled else "off")
+
+    # Password
+    if user.password:
+        final_rules.append(f">{user.password}")
+
+    # Rules
+    # User might provie "+@all ~*". We append it.
+    if user.rules:
+        final_rules.append(user.rules)
+
+    rule_str = " ".join(final_rules)
+
+    if RedisManager.set_acl_user(user.username, rule_str):
+        return {"status": "success"}
+    raise HTTPException(status_code=500, detail="Failed to set ACL user")
+
+@router.delete("/acl/users/{username}")
+def delete_acl_user(username: str, current_user: CurrentUser):
+    if RedisManager.delete_acl_user(username):
+        return {"status": "deleted"}
+    raise HTTPException(status_code=500, detail="Failed to delete ACL user")

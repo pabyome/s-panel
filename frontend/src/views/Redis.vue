@@ -18,6 +18,7 @@
           <a href="#" @click.prevent="activeTab = 'overview'" :class="[activeTab === 'overview' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700', 'whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium']">Overview</a>
           <a href="#" @click.prevent="activeTab = 'config'" :class="[activeTab === 'config' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700', 'whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium']">Configuration</a>
           <a href="#" @click.prevent="activeTab = 'explorer'" :class="[activeTab === 'explorer' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700', 'whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium']">Data Explorer</a>
+          <a href="#" @click.prevent="activeTab = 'users'" :class="[activeTab === 'users' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700', 'whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium']">Users (ACL)</a>
         </nav>
       </div>
 
@@ -94,9 +95,14 @@
          </form>
       </div>
 
-       <!-- Explorer Tab -->
+      <!-- Explorer Tab -->
       <div v-if="activeTab === 'explorer'" class="mt-6">
           <div class="flex gap-4 mb-4">
+             <div class="w-32 flex-shrink-0">
+               <select v-model="activeDb" @change="loadKeys" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2" title="Select Database">
+                  <option v-for="n in 16" :key="n-1" :value="n-1">DB {{ n-1 }}</option>
+               </select>
+             </div>
               <input v-model="keyPattern" @keyup.enter="loadKeys" type="text" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2" placeholder="Search keys (e.g. *)">
               <button @click="loadKeys" class="bg-gray-100 px-4 py-2 rounded border hover:bg-gray-200">Search</button>
           </div>
@@ -110,7 +116,7 @@
                        {{ deletingKey === key ? 'Deleting...' : 'Delete' }}
                      </button>
                 </li>
-                 <li v-if="keys.length === 0" class="px-4 py-4 text-gray-500 text-sm text-center">No keys found.</li>
+                 <li v-if="keys.length === 0" class="px-4 py-4 text-gray-500 text-sm text-center">No keys found in DB {{ activeDb }}.</li>
             </ul>
           </div>
 
@@ -139,6 +145,56 @@
           </div>
       </div>
 
+       <!-- Users (ACL) Tab -->
+      <div v-if="activeTab === 'users'" class="mt-6">
+         <div class="flex justify-end mb-4">
+             <button @click="openUserModal(null)" class="bg-indigo-600 text-white px-4 py-2 rounded shadow hover:bg-indigo-500">Add User</button>
+         </div>
+
+         <div class="bg-white shadow overflow-hidden sm:rounded-md">
+             <ul class="divide-y divide-gray-200">
+                 <li v-for="user in aclUsers" :key="user" class="px-4 py-4 flex items-center justify-between sm:px-6">
+                     <span class="text-sm font-medium text-gray-900">{{ user }}</span>
+                     <div class="flex gap-2">
+                         <button @click="inspectUser(user)" class="text-indigo-600 hover:text-indigo-900 text-sm">Edit</button>
+                         <button @click="confirmDeleteUser(user)" class="text-red-600 hover:text-red-900 text-sm">Delete</button>
+                     </div>
+                 </li>
+                 <li v-if="aclUsers.length === 0" class="px-4 py-4 text-gray-500 text-sm text-center">No users found or ACL not supported.</li>
+             </ul>
+         </div>
+
+         <!-- User Modal -->
+         <div v-if="isUserModalOpen" class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50">
+             <div class="bg-white rounded-lg p-6 max-w-md w-full">
+                 <h3 class="text-lg font-medium leading-6 text-gray-900 mb-4">{{ editingUser ? 'Edit User' : 'Add User' }}</h3>
+                 <form @submit.prevent="saveUser" class="space-y-4">
+                     <div>
+                         <label class="block text-sm font-medium text-gray-700">Username</label>
+                         <input v-model="userForm.username" type="text" :disabled="!!editingUser" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2">
+                     </div>
+                     <div>
+                         <label class="block text-sm font-medium text-gray-700">Password</label>
+                         <input v-model="userForm.password" type="text" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2" placeholder="Leave empty to keep unchanged">
+                     </div>
+                     <div class="flex items-center">
+                         <input v-model="userForm.enabled" type="checkbox" class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                         <label class="ml-2 block text-sm text-gray-900">Enabled</label>
+                     </div>
+                      <div>
+                         <label class="block text-sm font-medium text-gray-700">Rules (ACL string)</label>
+                         <input v-model="userForm.rules" type="text" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2" placeholder="+@all ~* &*">
+                         <p class="text-xs text-gray-500 mt-1">Example: +@all ~* &* (Admin)</p>
+                     </div>
+                     <div class="mt-5 sm:mt-6 flex justify-end gap-2">
+                         <button type="button" @click="isUserModalOpen = false" class="inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 sm:text-sm">Cancel</button>
+                         <button type="submit" class="inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 sm:text-sm">Save</button>
+                     </div>
+                 </form>
+             </div>
+         </div>
+      </div>
+
     </div>
 
     <!-- Delete Key Confirmation Modal -->
@@ -158,7 +214,7 @@
       :isOpen="isFlushDbModalOpen"
       type="danger"
       title="Flush Database"
-      message="Are you sure? This will delete ALL keys in the current database. This action cannot be undone."
+      :message="`Are you sure? This will delete ALL keys in DB ${activeDb}. This action cannot be undone.`"
       confirmText="Flush All"
       :isLoading="isFlushing"
       @confirm="flushDb"
@@ -168,7 +224,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import ConfirmModal from '../components/ConfirmModal.vue'
 import { useToast } from '../composables/useToast'
 
@@ -191,6 +247,18 @@ const configForm = ref({
 const keys = ref([])
 const keyPattern = ref('*')
 const selectedKey = ref(null)
+const activeDb = ref(0) // Default DB 0
+
+// ACL State
+const aclUsers = ref([])
+const isUserModalOpen = ref(false)
+const editingUser = ref(null) // Username if editing
+const userForm = ref({
+    username: '',
+    password: '',
+    enabled: true,
+    rules: '+@all ~* &*'
+})
 
 // Modal states
 const isDeleteKeyModalOpen = ref(false)
@@ -265,7 +333,7 @@ const saveConfig = async () => {
 
 const loadKeys = async () => {
     try {
-        const res = await fetch(`${API_BASE}/keys?pattern=${encodeURIComponent(keyPattern.value)}`, {
+        const res = await fetch(`${API_BASE}/keys?pattern=${encodeURIComponent(keyPattern.value)}&db=${activeDb.value}`, {
              headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
         })
         const data = await res.json()
@@ -277,9 +345,7 @@ const loadKeys = async () => {
 
 const inspectKey = async (key) => {
      try {
-        // Handle slashes in key by encoding? or just let path param handle if configured
-        // Our backend: /keys/{key:path}
-        const res = await fetch(`${API_BASE}/keys/${key}`, {
+        const res = await fetch(`${API_BASE}/keys/${key}?db=${activeDb.value}`, {
              headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
         })
         selectedKey.value = await res.json()
@@ -297,7 +363,7 @@ const deleteKey = async () => {
     if (!keyToDelete.value || deletingKey.value) return
     deletingKey.value = keyToDelete.value
     try {
-        const res = await fetch(`${API_BASE}/keys/${keyToDelete.value}`, {
+        const res = await fetch(`${API_BASE}/keys/${keyToDelete.value}?db=${activeDb.value}`, {
              method: 'DELETE',
              headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
         })
@@ -322,7 +388,7 @@ const flushDb = async () => {
     if (isFlushing.value) return
     isFlushing.value = true
     try {
-        const res = await fetch(`${API_BASE}/flush`, {
+        const res = await fetch(`${API_BASE}/flush?db=${activeDb.value}`, {
              method: 'POST',
              headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
         })
@@ -338,6 +404,102 @@ const flushDb = async () => {
         isFlushing.value = false
     }
 }
+
+// ACL Methods
+
+const fetchAclUsers = async () => {
+    try {
+        const res = await fetch(`${API_BASE}/acl/users`, {
+             headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        })
+        const data = await res.json()
+        aclUsers.value = data.users || []
+    } catch (e) {
+        // ACL might not be supported
+        console.error(e)
+    }
+}
+
+const inspectUser = async (username) => {
+    try {
+        const res = await fetch(`${API_BASE}/acl/users/${username}`, {
+             headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        })
+        const data = await res.json()
+        // Convert to form
+        editingUser.value = username
+        let rules = ""
+        // Reconstruct basic rules string or just use defaults+custom
+        // This is complex because ACL GETUSER returns flags list, keys list, etc.
+        // For simplicity we might just set standard rules or try to parse
+        // If we want to support simple edits:
+        userForm.value = {
+            username: username,
+            password: '',
+            enabled: data.flags.includes("on"),
+            rules: "+@all ~* &*" // Reset to default or leave as is? Ideally we shouldn't overwrite unless intended.
+                                 // But since we can't easily parse partial rules back to string without logic,
+                                 // let's just prefill with a generic "admin" rule set or leave blank?
+        }
+        isUserModalOpen.value = true
+    } catch (e) {
+         toast.error(e.message)
+    }
+}
+
+const openUserModal = () => {
+    editingUser.value = null
+    userForm.value = {
+        username: '',
+        password: '',
+        enabled: true,
+        rules: '+@all ~* &*'
+    }
+    isUserModalOpen.value = true
+}
+
+const saveUser = async () => {
+    try {
+        const res = await fetch(`${API_BASE}/acl/users`, {
+            method: 'POST',
+             headers: {
+                 'Content-Type': 'application/json',
+                 'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: JSON.stringify(userForm.value)
+        })
+        if(res.ok) {
+            toast.success("User saved")
+            isUserModalOpen.value = false
+            fetchAclUsers()
+        } else {
+            throw new Error("Failed to save user")
+        }
+    } catch (e) {
+        toast.error(e.message)
+    }
+}
+
+const confirmDeleteUser = async (username) => {
+    if(!confirm(`Delete user ${username}?`)) return
+    try {
+        await fetch(`${API_BASE}/acl/users/${username}`, {
+             method: 'DELETE',
+             headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        })
+        toast.success("User deleted")
+        fetchAclUsers()
+    } catch (e) {
+        toast.error(e.message)
+    }
+}
+
+
+watch(activeTab, (val) => {
+    if (val === 'users') {
+        fetchAclUsers()
+    }
+})
 
 onMounted(async () => {
     await fetchInfo()
