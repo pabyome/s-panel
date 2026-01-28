@@ -484,7 +484,8 @@ const updateWebsite = async () => {
         const updateData = {
             name: form.name,
             port: form.port,
-            project_path: form.project_path
+            project_path: form.project_path,
+            is_static: form.is_static
         }
         const { data } = await axios.put(`/api/v1/websites/${selectedWebsite.value.id}`, updateData)
         toast.success('Website updated successfully')
