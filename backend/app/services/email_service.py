@@ -51,8 +51,13 @@ class EmailService:
 
             msg.attach(MIMEText(body, 'plain'))
 
-            server = smtplib.SMTP(config['host'], int(config['port']))
-            server.starttls()
+            port = int(config['port'])
+            if port == 465:
+                server = smtplib.SMTP_SSL(config['host'], port)
+            else:
+                server = smtplib.SMTP(config['host'], port)
+                server.starttls()
+
             server.login(config['user'], config['password'])
             server.send_message(msg)
             server.quit()
