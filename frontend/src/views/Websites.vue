@@ -241,18 +241,18 @@
               </div>
 
               <div class="sm:col-span-2">
-                <label for="port" class="block text-sm font-medium text-gray-700">Internal Port</label>
+                <label for="port" class="block text-sm font-medium text-gray-700">{{ form.is_static ? 'Listen Port' : 'Internal Port' }}</label>
                 <div class="mt-2">
                   <input
                     type="number"
                     v-model="form.port"
                     id="port"
-                    :disabled="form.is_static || (selectedWebsite?.id && !isEditing)"
+                    :disabled="selectedWebsite?.id && !isEditing"
                     class="block w-full rounded-xl border-0 py-2.5 px-4 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm disabled:bg-gray-50 disabled:text-gray-500"
                     placeholder="3000"
                   >
                 </div>
-                <p v-if="form.is_static" class="mt-1.5 text-xs text-gray-400">Not used for static sites</p>
+                <p class="mt-1.5 text-xs text-gray-500">{{ form.is_static ? 'Port Nginx will listen on (e.g., 3089)' : 'Port your app runs on locally' }}</p>
               </div>
             </div>
 

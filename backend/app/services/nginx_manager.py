@@ -28,7 +28,7 @@ class NginxManager:
             if not project_path:
                 raise ValueError("project_path is required for static sites")
             return f"""server {{
-    listen 80;
+    listen {port};
     server_name {domain};
 
     root {project_path};

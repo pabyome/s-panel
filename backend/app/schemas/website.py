@@ -7,18 +7,9 @@ import re
 class WebsiteCreate(SQLModel):
     name: str
     domain: str
-    port: Optional[int] = None  # Optional for static sites
+    port: int  # Required for all sites - Nginx listens on this port
     project_path: str
     is_static: bool = False  # True for static HTML sites
-
-    @model_validator(mode="after")
-    def validate_port_for_dynamic_sites(self):
-        if not self.is_static and self.port is None:
-            raise ValueError("Port is required for dynamic (proxied) sites")
-        if self.is_static and self.port is None:
-            # Set a dummy port for static sites (not used but required by model)
-            self.port = 0
-        return self
 
     @field_validator("domain")
     @classmethod
@@ -33,8 +24,8 @@ class WebsiteCreate(SQLModel):
 
     @field_validator("port")
     @classmethod
-    def validate_port(cls, v: Optional[int]) -> Optional[int]:
-        if v is not None and v != 0 and not (1 <= v <= 65535):
+    def validate_port(cls, v: int) -> int:
+        if not (1 <= v <= 65535):
             raise ValueError("Port must be between 1 and 65535")
         return v
 
