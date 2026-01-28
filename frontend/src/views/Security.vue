@@ -3,8 +3,8 @@
     <!-- Header -->
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-2xl font-bold text-gray-900">Firewall</h1>
-        <p class="mt-1 text-sm text-gray-500">Manage UFW firewall rules and protect your server</p>
+        <h1 class="text-2xl font-bold text-gray-900">Security</h1>
+        <p class="mt-1 text-sm text-gray-500">Manage firewall rules and monitor listening ports</p>
       </div>
       <button @click="openCreateModal" type="button" class="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-500/25 transition-all hover:bg-blue-500 hover:shadow-xl hover:shadow-blue-500/30 hover:-translate-y-0.5">
         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -32,7 +32,20 @@
     </div>
 
     <!-- Stats Cards -->
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+    <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-900/5">
+        <div class="flex items-center gap-3">
+          <div class="rounded-xl bg-indigo-100 p-2.5">
+            <svg class="h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 14.25h13.5m-13.5 0a3 3 0 0 1-3-3m3 3a3 3 0 1 0 0 6h13.5a3 3 0 1 0 0-6m-16.5-3a3 3 0 0 1 3-3h13.5a3 3 0 0 1 3 3m-19.5 0a4.5 4.5 0 0 1 .9-2.7L5.737 5.1a3.375 3.375 0 0 1 2.7-1.35h7.126c1.062 0 2.062.5 2.7 1.35l2.587 3.45a4.5 4.5 0 0 1 .9 2.7m0 0a3 3 0 0 1-3 3m0 3h.008v.008h-.008v-.008Zm0-6h.008v.008h-.008v-.008Zm-3 6h.008v.008h-.008v-.008Zm0-6h.008v.008h-.008v-.008Z" />
+            </svg>
+          </div>
+          <div>
+            <p class="text-sm text-gray-500">Listening</p>
+            <p class="text-xl font-bold text-gray-900">{{ listeningPorts.length }}</p>
+          </div>
+        </div>
+      </div>
       <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-900/5">
         <div class="flex items-center gap-3">
           <div class="rounded-xl bg-emerald-100 p-2.5">
@@ -61,14 +74,100 @@
       </div>
       <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-900/5">
         <div class="flex items-center gap-3">
-          <div class="rounded-xl bg-blue-100 p-2.5">
-            <svg class="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+          <div class="rounded-xl bg-amber-100 p-2.5">
+            <svg class="h-5 w-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
             </svg>
           </div>
           <div>
-            <p class="text-sm text-gray-500">Total Rules</p>
-            <p class="text-xl font-bold text-gray-900">{{ rules.length }}</p>
+            <p class="text-sm text-gray-500">Unprotected</p>
+            <p class="text-xl font-bold text-gray-900">{{ listeningPorts.filter(p => getPortStatus(p.port) === 'none').length }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Listening Ports Section -->
+    <div class="rounded-2xl bg-white shadow-sm ring-1 ring-gray-900/5 overflow-hidden">
+      <div class="border-b border-gray-100 bg-gray-50/50 px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <h3 class="text-sm font-semibold text-gray-900">Listening Ports</h3>
+          <span class="text-xs text-gray-500">{{ listeningPorts.length }} ports</span>
+        </div>
+        <button @click="fetchListeningPorts" :disabled="isLoadingPorts" class="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-gray-900 transition-colors">
+          <svg :class="['h-4 w-4', isLoadingPorts ? 'animate-spin' : '']" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+          </svg>
+          Refresh
+        </button>
+      </div>
+
+      <!-- Port Status Legend -->
+      <div class="px-6 py-3 bg-gray-50/30 border-b border-gray-100 flex items-center gap-6 text-xs">
+        <div class="flex items-center gap-1.5">
+          <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+          <span class="text-gray-600">Allowed by firewall</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <span class="h-2 w-2 rounded-full bg-amber-500"></span>
+          <span class="text-gray-600">No firewall rule</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <span class="h-2 w-2 rounded-full bg-red-500"></span>
+          <span class="text-gray-600">Blocked by firewall</span>
+        </div>
+      </div>
+
+      <div class="p-4">
+        <div v-if="isLoadingPorts" class="flex items-center justify-center py-8">
+          <svg class="h-6 w-6 animate-spin text-gray-400" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+        </div>
+        <div v-else-if="listeningPorts.length === 0" class="py-8 text-center text-sm text-gray-500">
+          No listening ports detected
+        </div>
+        <div v-else class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+          <div
+            v-for="portInfo in listeningPorts"
+            :key="portInfo.port"
+            :class="[
+              'relative rounded-xl p-3 ring-1 ring-inset transition-all hover:shadow-md cursor-default group',
+              getPortStatus(portInfo.port) === 'allowed' ? 'bg-emerald-50/50 ring-emerald-200' :
+              getPortStatus(portInfo.port) === 'denied' ? 'bg-red-50/50 ring-red-200' :
+              'bg-amber-50/50 ring-amber-200'
+            ]"
+          >
+            <div class="flex items-start justify-between">
+              <div>
+                <div class="flex items-center gap-2">
+                  <span :class="[
+                    'h-2 w-2 rounded-full',
+                    getPortStatus(portInfo.port) === 'allowed' ? 'bg-emerald-500' :
+                    getPortStatus(portInfo.port) === 'denied' ? 'bg-red-500' :
+                    'bg-amber-500'
+                  ]"></span>
+                  <span class="font-mono text-lg font-bold text-gray-900">{{ portInfo.port }}</span>
+                </div>
+                <p class="mt-1 text-xs text-gray-500 truncate max-w-[100px]" :title="portInfo.process_name || 'Unknown'">
+                  {{ portInfo.process_name || 'Unknown' }}
+                </p>
+              </div>
+              <button
+                v-if="getPortStatus(portInfo.port) === 'none'"
+                @click="quickAllowPort(portInfo.port)"
+                class="opacity-0 group-hover:opacity-100 transition-opacity rounded-lg p-1.5 text-amber-600 hover:bg-amber-100"
+                title="Allow this port"
+              >
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+              </button>
+            </div>
+            <div class="mt-2 flex items-center gap-2 text-xs text-gray-400">
+              <span>{{ portInfo.address === '0.0.0.0' || portInfo.address === '::' ? 'All interfaces' : portInfo.address }}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -77,7 +176,7 @@
     <!-- Rules Table -->
     <div class="rounded-2xl bg-white shadow-sm ring-1 ring-gray-900/5 overflow-hidden">
       <div class="border-b border-gray-100 bg-gray-50/50 px-6 py-4">
-        <h3 class="text-sm font-semibold text-gray-900">Active Rules</h3>
+        <h3 class="text-sm font-semibold text-gray-900">Firewall Rules</h3>
       </div>
       <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-100">
@@ -225,10 +324,12 @@ import { useToast } from '../composables/useToast'
 const toast = useToast()
 
 const rules = ref([])
+const listeningPorts = ref([])
 const isModalOpen = ref(false)
 const isDeleteModalOpen = ref(false)
 const ruleToDelete = ref(null)
 const isLoading = ref(false)
+const isLoadingPorts = ref(false)
 const isCreating = ref(false)
 const deletingId = ref(null)
 const form = reactive({
@@ -236,6 +337,50 @@ const form = reactive({
     protocol: 'tcp',
     action: 'allow'
 })
+
+const fetchListeningPorts = async () => {
+    isLoadingPorts.value = true
+    try {
+        const response = await axios.get('/api/v1/system/ports/listening')
+        listeningPorts.value = response.data
+    } catch (e) {
+        console.error("Failed to fetch listening ports", e)
+    } finally {
+        isLoadingPorts.value = false
+    }
+}
+
+const getPortStatus = (port) => {
+    // Check if this port has a firewall rule
+    const rule = rules.value.find(r => {
+        // Handle port ranges like "80:443" or single ports
+        const portStr = r.to_port?.toString() || ''
+        if (portStr.includes(':')) {
+            const [start, end] = portStr.split(':').map(Number)
+            return port >= start && port <= end
+        }
+        // Handle protocol suffix like "80/tcp"
+        const portNum = parseInt(portStr.split('/')[0])
+        return portNum === port
+    })
+
+    if (!rule) return 'none'
+    return rule.action === 'ALLOW' ? 'allowed' : 'denied'
+}
+
+const quickAllowPort = async (port) => {
+    try {
+        await axios.post('/api/v1/firewall/', {
+            port: port,
+            protocol: 'tcp',
+            action: 'allow'
+        })
+        toast.success(`Port ${port} allowed`)
+        setTimeout(fetchRules, 500)
+    } catch (e) {
+        toast.error(e.response?.data?.detail || `Failed to allow port ${port}`)
+    }
+}
 
 const fetchRules = async (showLoading = false) => {
     if (showLoading) isLoading.value = true
@@ -301,5 +446,6 @@ const closeModal = () => {
 
 onMounted(() => {
     fetchRules(true)
+    fetchListeningPorts()
 })
 </script>
