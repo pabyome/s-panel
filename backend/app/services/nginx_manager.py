@@ -34,6 +34,9 @@ class NginxManager:
     root {project_path};
     index index.html index.htm;
 
+    access_log /var/log/nginx/{domain}.access.log;
+    error_log /var/log/nginx/{domain}.error.log;
+
     location / {{
         try_files $uri $uri/ /index.html;
     }}
@@ -55,6 +58,9 @@ class NginxManager:
 server {{
     listen 80;
     server_name {domain};
+
+    access_log /var/log/nginx/{domain}.access.log;
+    error_log /var/log/nginx/{domain}.error.log;
 
     location / {{
         proxy_pass http://127.0.0.1:{port};
