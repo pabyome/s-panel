@@ -6,6 +6,8 @@ from typing import Dict, Any, List, Optional
 
 
 class SystemMonitor:
+    _os_info_cache: Optional[Dict[str, str]] = None
+
     @staticmethod
     def get_cpu_stats() -> Dict[str, Any]:
         try:
@@ -64,12 +66,14 @@ class SystemMonitor:
         except Exception:
             return 0
 
-    @staticmethod
-    def get_os_info() -> Dict[str, str]:
-        try:
-            return {"system": platform.system(), "release": platform.release(), "version": platform.version()}
-        except Exception:
-            return {"system": "Unknown", "release": "Unknown", "version": "Unknown"}
+    @classmethod
+    def get_os_info(cls) -> Dict[str, str]:
+        if cls._os_info_cache is None:
+            try:
+                cls._os_info_cache = {"system": platform.system(), "release": platform.release(), "version": platform.version()}
+            except Exception:
+                return {"system": "Unknown", "release": "Unknown", "version": "Unknown"}
+        return cls._os_info_cache
 
     @staticmethod
     def get_top_processes(limit: int = 20) -> list[Dict[str, Any]]:
