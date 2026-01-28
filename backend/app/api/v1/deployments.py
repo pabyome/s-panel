@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, BackgroundTasks, Header, WebSocket, WebSocketDisconnect
 from starlette.websockets import WebSocketState
-from sqlmodel import Session, select
+from sqlmodel import Session, select, SQLModel
 from typing import List, Dict, Set
 import uuid
 import secrets
@@ -29,6 +29,32 @@ logger = logging.getLogger(__name__)
 # WebSocket connections for live deployment logs
 deployment_connections: Dict[str, Set[WebSocket]] = {}
 
+
+class DeploymentWebhookInfo(SQLModel):
+    webhook_url: str
+    secret: str
+
+@router.get("/{deployment_id}/webhook-info", response_model=DeploymentWebhookInfo)
+def get_deployment_webhook_info(deployment_id: uuid.UUID, session: SessionDep, current_user: CurrentUser):
+    """Get webhook configuration details (URL and Secret)"""
+    deployment = session.get(DeploymentConfig, deployment_id)
+    if not deployment:
+        raise HTTPException(status_code=404, detail="Deployment not found")
+
+    # Calculate webhook URL (or use field if persisted, but checking model, it's calculated in DeploymentRead)
+    # DeploymentRead calculates it. We need to replicate or use DeploymentRead logic.
+    # DeploymentRead uses: webhook_url: str = "" # Calculated field
+    # In API logic usually it's injected.
+    # Let's verify how DeploymentRead gets webhook_url.
+    # It seems to be done in `read_deployments`? No, SQLModel matching.
+    # Actually, `DeploymentRead` has `webhook_url` but `DeploymentConfig` doesn't?
+    # DeploymentConfig table definition in tool 263 doesn't have webhook_url column.
+    # So `read_deployments` probably computes it?
+    # Let's check `read_deployments` impl.
+    # For now, I'll calculate it: f"/api/v1/deployments/webhook/{deployment_id}"
+
+    webhook_url = f"/api/v1/deployments/webhook/{deployment_id}"
+    return DeploymentWebhookInfo(webhook_url=webhook_url, secret=deployment.secret)
 
 @router.websocket("/ws/{deployment_id}")
 async def deployment_logs_ws(

@@ -641,8 +641,10 @@ import PathInput from '../components/PathInput.vue'
 import UserSelect from '../components/UserSelect.vue'
 import ConfirmModal from '../components/ConfirmModal.vue'
 import { useToast } from '../composables/useToast'
+import { useAuthStore } from '../stores/auth'
 
 const toast = useToast()
+const authStore = useAuthStore()
 
 const deployments = ref([])
 const processes = ref([])
@@ -735,7 +737,7 @@ const connectLogsWebSocket = (deploymentId) => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
     const host = window.location.hostname
     const port = window.location.port ? `:${window.location.port}` : ''
-    const wsUrl = `${protocol}//${host}${port}/api/v1/deployments/ws/${deploymentId}`
+    const wsUrl = `${protocol}//${host}${port}/api/v1/deployments/ws/${deploymentId}?token=${authStore.token}`
 
     console.log('Connecting to deployment logs WebSocket:', wsUrl)
 
@@ -912,9 +914,21 @@ const stopPolling = () => {
     }
 }
 
-const showDetails = (deploy) => {
+const showDetails = async (deploy) => {
     selectedDeploy.value = deploy
     isDetailsOpen.value = true
+
+    // Fetch sensitive webhook info on demand
+    try {
+        const response = await axios.get(`/api/v1/deployments/${deploy.id}/webhook-info`)
+        if (selectedDeploy.value && selectedDeploy.value.id === deploy.id) {
+            selectedDeploy.value.secret = response.data.secret
+            // We could also update webhook_url if needed
+        }
+    } catch (e) {
+        console.error("Failed to fetch webhook info", e)
+        toast.error("Failed to load webhook secret")
+    }
 }
 
 const showLogs = (deploy) => {

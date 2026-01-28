@@ -153,3 +153,13 @@ def test_webhook_invalid_signature(client: TestClient, session: Session):
     )
     assert response.status_code == 401
     assert response.json()["detail"] == "Invalid signature"
+
+def test_git_service_subshell_syntax():
+    # Test (cd foo && bar) syntax
+    command = "(cd backend && npm install)"
+    is_valid, msg, parsed = GitService.validate_command(command)
+    assert is_valid is True
+    # parsed should be [['cd', 'backend'], ['npm', 'install']]
+    assert len(parsed) == 2
+    assert parsed[0] == ['cd', 'backend']
+    assert parsed[1] == ['npm', 'install']

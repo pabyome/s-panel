@@ -47,6 +47,10 @@ class GitService:
             if not sub_cmd_raw:
                 continue
 
+            # Strip subshell grouping parentheses to support (cd foo && bar) syntax
+            # We execute linearly, so we unwrap them.
+            sub_cmd_raw = sub_cmd_raw.lstrip("(").rstrip(")")
+
             try:
                 # Use shlex to parse arguments correctly (handling quotes)
                 parts = shlex.split(sub_cmd_raw)
