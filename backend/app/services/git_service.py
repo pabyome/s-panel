@@ -430,7 +430,7 @@ class GitService:
         logs = []
         commit_hash = None
         run_as_user = run_as_user or "root" # Ensure not None
-        parsed_deployment_commands = []
+        parsed_groups = []
 
         def append_log(msg):
             logs.append(msg)
@@ -439,7 +439,7 @@ class GitService:
 
         # 0. Validate post_command security
         if post_command:
-            is_valid, msg, parsed_deployment_commands = GitService.validate_command(post_command)
+            is_valid, msg, parsed_groups = GitService.validate_command(post_command)
             if not is_valid:
                 return False, f"Security Validation Failed: {msg}", None
 
@@ -448,8 +448,6 @@ class GitService:
             return False, f"Project path does not exist: {project_path}", None
 
         # 1b. Fix Dubious Ownership (Safe Directory)
-        # When running as root, we need to explicitly trust directories owned by other users
-        # This prevents "fatal: detected dubious ownership"
         try:
              subprocess.run(
                  ["git", "config", "--global", "--add", "safe.directory", project_path],
@@ -486,7 +484,7 @@ class GitService:
             append_log(f"✓ Git pull successful. Current commit: {commit_hash}")
 
         # 3. Post Deploy Command
-        if parsed_deployment_commands:
+        if parsed_groups:
             append_log("")
             append_log("▶ Step 2: Running post-deploy command...")
             append_log(f"  $ {post_command}")
@@ -496,57 +494,62 @@ class GitService:
 
             current_cwd = project_path
 
-            for cmd_parts in parsed_deployment_commands:
-                try:
-                    executable = cmd_parts[0]
+            for group in parsed_groups:
+                # Save CWD if isolated
+                start_cwd = current_cwd
 
-                    # Handle built-in cd
-                    if executable == "cd":
-                        if len(cmd_parts) > 1:
-                            target_dir = cmd_parts[1]
-                            # Resolve path relative to current_cwd
-                            new_path = os.path.abspath(os.path.join(current_cwd, target_dir))
-                            # Security check: prevent cd out of known areas?
-                            # For simplicity we allow it, as user is essentially admin/deployer
-                            if os.path.isdir(new_path):
-                                current_cwd = new_path
-                                append_log(f"  $ cd {target_dir}")
-                            else:
-                                append_log(f"✗ cd failed: Directory not found: {target_dir}")
-                                return False, "\n".join(logs), commit_hash
-                        continue
+                for cmd_parts in group.commands:
+                    try:
+                        executable = cmd_parts[0]
 
-                    # Construct command with sudo
-                    # "sudo -u user executable args..."
-                    safe_command = ["sudo", "-u", run_as_user] + cmd_parts
+                        # Handle built-in cd
+                        if executable == "cd":
+                            if len(cmd_parts) > 1:
+                                target_dir = cmd_parts[1]
+                                # Resolve path relative to current_cwd
+                                new_path = os.path.abspath(os.path.join(current_cwd, target_dir))
+                                if os.path.isdir(new_path):
+                                    current_cwd = new_path
+                                    append_log(f"  $ cd {target_dir}")
+                                else:
+                                    append_log(f"✗ cd failed: Directory not found: {target_dir}")
+                                    return False, "\n".join(logs), commit_hash
+                            continue
 
-                    # Log the command being run
-                    pretty_cmd = " ".join(cmd_parts)
-                    append_log(f"  $ {pretty_cmd}")
+                        # Construct command with sudo
+                        safe_command = ["sudo", "-u", run_as_user] + cmd_parts
 
-                    result = subprocess.run(
-                        safe_command,
-                        cwd=current_cwd,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.STDOUT,
-                        text=True,
-                        timeout=600,
-                    )
-                    append_log(result.stdout)
+                        # Log the command being run
+                        pretty_cmd = " ".join(cmd_parts)
+                        append_log(f"  $ {pretty_cmd}")
 
-                    if result.returncode != 0:
+                        result = subprocess.run(
+                            safe_command,
+                            cwd=current_cwd,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.STDOUT,
+                            text=True,
+                            timeout=600,
+                        )
+                        append_log(result.stdout)
+
+                        if result.returncode != 0:
+                            append_log("")
+                            append_log(f"✗ Command failed with exit code {result.returncode}")
+                            return False, "\n".join(logs), commit_hash
+
+                    except subprocess.TimeoutExpired:
                         append_log("")
-                        append_log(f"✗ Command failed with exit code {result.returncode}")
+                        append_log("✗ Command timed out after 10 minutes")
+                        return False, "\n".join(logs), commit_hash
+                    except Exception as e:
+                        append_log("")
+                        append_log(f"✗ Error executing command: {str(e)}")
                         return False, "\n".join(logs), commit_hash
 
-                except subprocess.TimeoutExpired:
-                    append_log("")
-                    append_log("✗ Command timed out after 10 minutes")
-                    return False, "\n".join(logs), commit_hash
-                except Exception as e:
-                    append_log("")
-                    append_log(f"✗ Error executing command: {str(e)}")
-                    return False, "\n".join(logs), commit_hash
+                # Restore CWD if isolated
+                if group.isolated:
+                    current_cwd = start_cwd
 
             append_log("")
             append_log("✓ Post-deploy command completed successfully")
