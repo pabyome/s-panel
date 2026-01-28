@@ -15,7 +15,14 @@ router = APIRouter()
 
 @router.get("/nginx", response_model=dict)
 def get_nginx_info(session: SessionDep, current_user: CurrentUser):
-    return {"version": NginxManager.get_version(), "path": NginxManager.get_binary_path()}
+    status = NginxManager.get_status()
+    binary_path = NginxManager.get_binary_path()
+    return {
+        "version": status["version"],
+        "path": binary_path,
+        "running": status["running"],
+        "status_text": status["status_text"]
+    }
 
 
 @router.post("/nginx/validate")

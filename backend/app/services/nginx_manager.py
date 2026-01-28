@@ -14,7 +14,7 @@ class NginxManager:
             subprocess.run(command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             return True
         except subprocess.CalledProcessError as e:
-            print(f"Command failed: {e}")
+            # Don't print to stdout in production, maybe log?
             return False
 
     @classmethod
@@ -121,9 +121,41 @@ server {{
 
     @classmethod
     def reload_nginx(cls) -> bool:
-        if cls._run_command(["nginx", "-t"]):
-            return cls._run_command(["nginx", "-s", "reload"])
-        return False
+        # 1. Test config first
+        if not cls._run_command(["nginx", "-t"]):
+            return False
+
+        # 2. Try standard reload
+        if cls._run_command(["nginx", "-s", "reload"]):
+            return True
+
+        # 3. Fallback: If PID file is invalid (common in s6/docker), send HUP signal manually
+        # This matches 'service nginx reload' behavior on many systems without systemd
+        print("Standard reload failed, attempting signal reload...")
+        return cls._run_command(["pkill", "-HUP", "nginx"])
+
+    @staticmethod
+    def get_status() -> dict:
+        """
+        Check actual Nginx process status.
+        Returns dict with running (bool) and details (str).
+        """
+        # Check if process is running
+        is_running = False
+        try:
+            # pgrep returns 0 if found, 1 if not
+            subprocess.run(["pgrep", "nginx"], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            is_running = True
+        except subprocess.CalledProcessError:
+            is_running = False
+
+        version = NginxManager.get_version()
+
+        return {
+            "running": is_running,
+            "version": version if is_running else None,
+            "status_text": "Running" if is_running else "Stopped"
+        }
 
     @staticmethod
     def secure_site(domain: str, email: str) -> bool:

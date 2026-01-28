@@ -69,7 +69,9 @@
             <div class="flex justify-between items-start">
               <div>
                 <p class="text-sm text-gray-500">Nginx</p>
-                <p class="text-xl font-bold text-emerald-600">Running</p>
+                <p :class="['text-xl font-bold', nginxInfo.running ? 'text-emerald-600' : 'text-red-600']">
+                  {{ nginxInfo.status_text || (nginxInfo.version ? 'Running' : 'Stopped') }}
+                </p>
               </div>
               <div class="text-right opacity-0 transition-opacity group-hover/nginx:opacity-100">
                 <p v-if="nginxInfo.version" class="text-xs text-gray-400 font-mono">{{ nginxInfo.version }}</p>
@@ -385,7 +387,7 @@ import { useToast } from '../composables/useToast'
 const toast = useToast()
 
 const websites = ref([])
-const nginxInfo = ref({ version: '', path: '' })
+const nginxInfo = ref({ version: '', path: '', running: false, status_text: 'Checking...' })
 const selectedWebsite = ref(null)
 const isManageOpen = ref(false)
 const isLoading = ref(false)
