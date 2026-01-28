@@ -4,6 +4,7 @@ from app.models.website import Website
 from app.schemas.website import WebsiteCreate
 from app.services.nginx_manager import NginxManager
 
+
 class WebsiteManager:
     def __init__(self, session: Session):
         self.session = session
@@ -24,7 +25,9 @@ class WebsiteManager:
 
         # 2. Generate Nginx Config using reused Manager
         try:
-            success = NginxManager.create_site(db_website.domain, db_website.port)
+            success = NginxManager.create_site(
+                db_website.domain, db_website.port, is_static=db_website.is_static, project_path=db_website.project_path
+            )
             if success:
                 db_website.status = "running"
             else:

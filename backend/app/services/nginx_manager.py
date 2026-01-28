@@ -3,6 +3,7 @@ import subprocess
 import shlex
 import shutil
 
+
 class NginxManager:
     SITES_AVAILABLE = "/etc/nginx/sites-available"
     SITES_ENABLED = "/etc/nginx/sites-enabled"
@@ -17,12 +18,40 @@ class NginxManager:
             return False
 
     @classmethod
-    def generate_config(cls, domain: str, port: int) -> str:
+    def generate_config(cls, domain: str, port: int, is_static: bool = False, project_path: str = None) -> str:
         # Extra safety: Ensure domain has no newlines to prevent config injection
         if "\n" in domain or "\r" in domain:
             raise ValueError("Invalid domain: contains newline characters")
 
-        return f"""
+        if is_static:
+            # Static site configuration - serve files directly
+            if not project_path:
+                raise ValueError("project_path is required for static sites")
+            return f"""server {{
+    listen 80;
+    server_name {domain};
+
+    root {project_path};
+    index index.html index.htm;
+
+    location / {{
+        try_files $uri $uri/ /index.html;
+    }}
+
+    # Cache static assets
+    location ~* \\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {{
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }}
+
+    # Security headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+}}
+"""
+        else:
+            # Dynamic site configuration - proxy to local port
+            return f"""
 server {{
     listen 80;
     server_name {domain};
@@ -39,8 +68,8 @@ server {{
 """
 
     @classmethod
-    def create_site(cls, domain: str, port: int) -> bool:
-        config_content = cls.generate_config(domain, port)
+    def create_site(cls, domain: str, port: int, is_static: bool = False, project_path: str = None) -> bool:
+        config_content = cls.generate_config(domain, port, is_static, project_path)
         file_path = os.path.join(cls.SITES_AVAILABLE, domain)
 
         # Security: sanitize path (though os.path.join handles basic, we assume domain is validated)
@@ -99,13 +128,7 @@ server {{
     @staticmethod
     def secure_site(domain: str, email: str) -> bool:
         # certbot --nginx -d domain.com --non-interactive --agree-tos -m email
-        cmd = [
-            "certbot", "--nginx",
-            "-d", domain,
-            "--non-interactive",
-            "--agree-tos",
-            "-m", email
-        ]
+        cmd = ["certbot", "--nginx", "-d", domain, "--non-interactive", "--agree-tos", "-m", email]
         return NginxManager._run_command(cmd)
 
     @staticmethod

@@ -1,14 +1,24 @@
 from sqlmodel import SQLModel
 from typing import Optional
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 import re
 
 
 class WebsiteCreate(SQLModel):
     name: str
     domain: str
-    port: int
+    port: Optional[int] = None  # Optional for static sites
     project_path: str
+    is_static: bool = False  # True for static HTML sites
+
+    @model_validator(mode="after")
+    def validate_port_for_dynamic_sites(self):
+        if not self.is_static and self.port is None:
+            raise ValueError("Port is required for dynamic (proxied) sites")
+        if self.is_static and self.port is None:
+            # Set a dummy port for static sites (not used but required by model)
+            self.port = 0
+        return self
 
     @field_validator("domain")
     @classmethod
@@ -23,8 +33,8 @@ class WebsiteCreate(SQLModel):
 
     @field_validator("port")
     @classmethod
-    def validate_port(cls, v: int) -> int:
-        if not (1 <= v <= 65535):
+    def validate_port(cls, v: Optional[int]) -> Optional[int]:
+        if v is not None and v != 0 and not (1 <= v <= 65535):
             raise ValueError("Port must be between 1 and 65535")
         return v
 
@@ -38,6 +48,7 @@ class WebsiteRead(SQLModel):
     port: int
     project_path: str
     ssl_enabled: bool
+    is_static: bool
     status: str
 
 
@@ -47,6 +58,7 @@ class WebsiteUpdate(SQLModel):
     name: Optional[str] = None
     port: Optional[int] = None
     project_path: Optional[str] = None
+    is_static: Optional[bool] = None
 
     @field_validator("port")
     @classmethod

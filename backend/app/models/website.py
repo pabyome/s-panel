@@ -2,6 +2,7 @@ from sqlmodel import SQLModel, Field
 from typing import Optional
 from datetime import datetime
 
+
 class Website(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str
@@ -9,6 +10,7 @@ class Website(SQLModel, table=True):
     port: int
     project_path: str
     ssl_enabled: bool = False
-    status: str = "stopped" # running, stopped, error
+    is_static: bool = False  # True for static HTML sites, False for proxied apps
+    status: str = "stopped"  # running, stopped, error
     created_at: datetime = Field(default_factory=datetime.utcnow)
     owner_id: Optional[int] = Field(default=None, foreign_key="user.id")

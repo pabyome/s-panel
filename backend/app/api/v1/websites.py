@@ -191,31 +191,43 @@ def get_website(website_id: int, session: SessionDep, current_user: CurrentUser)
 
 @router.put("/{website_id}", response_model=WebsiteRead)
 def update_website(website_id: int, update_data: WebsiteUpdate, session: SessionDep, current_user: CurrentUser):
-    """Update website settings (name, port, project_path). Domain cannot be changed."""
+    """Update website settings (name, port, project_path, is_static). Domain cannot be changed."""
     website = session.get(Website, website_id)
     if not website:
         raise HTTPException(status_code=404, detail="Website not found")
 
     old_port = website.port
+    old_is_static = website.is_static
+    old_project_path = website.project_path
 
     # Update only provided fields
     update_dict = update_data.model_dump(exclude_unset=True)
     for key, value in update_dict.items():
         setattr(website, key, value)
 
-    # If port changed, regenerate nginx config
-    if update_data.port and update_data.port != old_port:
-        new_config = NginxManager.generate_config(website.domain, update_data.port)
+    # Check if we need to regenerate nginx config
+    needs_nginx_update = (
+        (update_data.port is not None and update_data.port != old_port)
+        or (update_data.is_static is not None and update_data.is_static != old_is_static)
+        or (update_data.project_path is not None and update_data.project_path != old_project_path and website.is_static)
+    )
+
+    if needs_nginx_update:
+        new_config = NginxManager.generate_config(
+            website.domain, website.port, is_static=website.is_static, project_path=website.project_path
+        )
         config_path = f"/etc/nginx/sites-available/{website.domain}"
         try:
             with open(config_path, "w") as f:
                 f.write(new_config)
             if not NginxManager.reload_nginx():
-                # Revert port in DB if nginx reload fails
+                # Revert changes in DB if nginx reload fails
                 website.port = old_port
+                website.is_static = old_is_static
+                website.project_path = old_project_path
                 session.add(website)
                 session.commit()
-                raise HTTPException(status_code=500, detail="Failed to reload Nginx after port change")
+                raise HTTPException(status_code=500, detail="Failed to reload Nginx after config change")
         except IOError as e:
             raise HTTPException(status_code=500, detail=f"Failed to update nginx config: {str(e)}")
 
