@@ -364,7 +364,9 @@ Logs snippet:
             # Deduplicate
             recipients = list(set(recipients))
 
-            EmailService.send_email(subject, body, recipients)
+            custom_success, custom_msg = EmailService.send_email(subject, body, recipients)
+            if not custom_success:
+                logger.warning(f"Failed to send deployment notification: {custom_msg}")
 
         except Exception as e:
             logger.exception(f"Deployment {deployment.name} failed with exception")
@@ -396,11 +398,13 @@ Logs snippet:
             # Deduplicate
             recipients = list(set(recipients))
 
-            EmailService.send_email(
+            err_success, err_msg = EmailService.send_email(
                 f"Deployment {deployment.name}: Failed (Exception)",
                 f"Deployment failed with error: {str(e)}",
                 recipients,
             )
+            if not err_success:
+                logger.warning(f"Failed to send failure notification: {err_msg}")
 
 
 @router.post("/webhook/{deployment_id}")

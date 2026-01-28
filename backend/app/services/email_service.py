@@ -30,18 +30,18 @@ class EmailService:
             session.commit()
 
     @staticmethod
-    def send_email(subject: str, body: str, recipients: list[str] = None):
+    def send_email(subject: str, body: str, recipients: list[str] = None) -> tuple[bool, str]:
         config = EmailService.get_smtp_config()
         if not config:
             logger.warning("SMTP config not found. Skipping email.")
-            return False
+            return False, "SMTP config not found"
 
         if not recipients:
             recipients = config.get("admin_emails", [])
 
         if not recipients:
             logger.warning("No recipients defined. Skipping email.")
-            return False
+            return False, "No recipients defined"
 
         try:
             msg = MIMEMultipart()
@@ -57,22 +57,20 @@ class EmailService:
             server.send_message(msg)
             server.quit()
             logger.info(f"Email sent to {recipients}")
-            return True
+            return True, "Email sent"
         except Exception as e:
             logger.exception(f"Failed to send email: {e}")
-            return False
+            return False, str(e)
 
     @staticmethod
     def send_test_email(to_email: str) -> tuple[bool, str]:
         try:
-            success = EmailService.send_email(
+            success, message = EmailService.send_email(
                 subject="Test Email from S-Panel",
                 body="This is a test email to verify your SMTP settings. If you received this, your configuration is correct.",
                 recipients=[to_email]
             )
-            if success:
-                return True, "Email sent successfully"
-            return False, "Failed to send email. Check logs for details."
+            return success, message
         except Exception as e:
             return False, str(e)
 

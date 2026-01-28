@@ -98,7 +98,7 @@
       <!-- Explorer Tab -->
       <div v-if="activeTab === 'explorer'" class="mt-6">
           <div class="flex gap-4 mb-4">
-             <div class="w-32 flex-shrink-0">
+             <div class="w-32 shrink-0">
                <select v-model="activeDb" @change="loadKeys" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2" title="Select Database">
                   <option v-for="n in 16" :key="n-1" :value="n-1">DB {{ n-1 }}</option>
                </select>
