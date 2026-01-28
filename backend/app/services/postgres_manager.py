@@ -27,7 +27,7 @@ class PostgresManager:
         cmd = ["sudo", "-u", "postgres", "psql", "-d", db]
 
         if as_csv:
-            cmd.extend(["-t", "-A", "-F,"])  # Tuples only, Unaligned, Comma separated
+            cmd.extend(["-t", "-A", "-F|"])  # Tuples only, Unaligned, Pipe separated (safer than comma)
         else:
             cmd.extend(["-t", "-A"])  # Tuples only
 
@@ -121,9 +121,9 @@ class PostgresManager:
         for line in output.splitlines():
             if not line.strip():
                 continue
-            parts = line.split(",")
+            parts = line.split("|")
             if len(parts) >= 3:
-                dbs.append({"name": parts[0], "owner": parts[1], "size": parts[2]})
+                dbs.append({"name": parts[0].strip(), "owner": parts[1].strip(), "size": parts[2].strip()})
         return dbs
 
     @staticmethod
@@ -147,21 +147,24 @@ class PostgresManager:
 
     @staticmethod
     def list_users() -> List[Dict[str, Any]]:
-        sql = "SELECT usename, usesuper, usecreatedb, usecreaterole, usebypassrls FROM pg_catalog.pg_user;"
+        # Use pg_roles which is more reliable than pg_user
+        sql = "SELECT rolname, rolsuper, rolcreatedb, rolcreaterole FROM pg_catalog.pg_roles WHERE rolcanlogin = true ORDER BY rolname;"
         success, output = PostgresManager._run_psql(sql, as_csv=True)
         if not success:
             return []
 
         users = []
         for line in output.splitlines():
-            parts = line.split(",")
-            if len(parts) >= 5:
+            if not line.strip():
+                continue
+            parts = line.split("|")
+            if len(parts) >= 4:
                 users.append(
                     {
-                        "name": parts[0],
-                        "superuser": parts[1] == "t",
-                        "createdb": parts[2] == "t",
-                        "createrole": parts[3] == "t",
+                        "name": parts[0].strip(),
+                        "superuser": parts[1].strip() == "t",
+                        "createdb": parts[2].strip() == "t",
+                        "createrole": parts[3].strip() == "t",
                     }
                 )
         return users
@@ -171,15 +174,36 @@ class PostgresManager:
         if not re.match(r"^[a-zA-Z0-9_]+$", name):
             return False, "Invalid username"
 
-        # Construct SQL
-        flags = []
+        # Check if user already exists
+        check_sql = f"SELECT 1 FROM pg_roles WHERE rolname = '{name}';"
+        exists, output = PostgresManager._run_psql(check_sql)
+        if exists and output.strip() == "1":
+            # User exists, update password and attributes instead
+            flags = []
+            if superuser:
+                flags.append("SUPERUSER")
+            else:
+                flags.append("NOSUPERUSER")
+            if createdb:
+                flags.append("CREATEDB")
+            else:
+                flags.append("NOCREATEDB")
+            flag_str = " ".join(flags)
+            sql = f"ALTER ROLE {name} WITH PASSWORD '{password}' {flag_str};"
+            success, msg = PostgresManager._run_psql(sql)
+            if success:
+                return True, "User updated (already existed)"
+            return False, msg
+
+        # Construct SQL for new user
+        flags = ["LOGIN"]  # Ensure user can login
         if superuser:
             flags.append("SUPERUSER")
         if createdb:
             flags.append("CREATEDB")
         flag_str = " ".join(flags)
 
-        sql = f"CREATE USER {name} WITH PASSWORD '{password}' {flag_str};"
+        sql = f"CREATE ROLE {name} WITH {flag_str} PASSWORD '{password}';"
         return PostgresManager._run_psql(sql)
 
     @staticmethod
@@ -226,9 +250,11 @@ class PostgresManager:
 
         exts = []
         for line in output.splitlines():
-            parts = line.split(",")
+            if not line.strip():
+                continue
+            parts = line.split("|")
             if len(parts) >= 2:
-                exts.append({"name": parts[0], "version": parts[1]})
+                exts.append({"name": parts[0].strip(), "version": parts[1].strip()})
         return exts
 
     @staticmethod
