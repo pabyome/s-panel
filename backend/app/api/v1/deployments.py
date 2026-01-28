@@ -16,6 +16,12 @@ from app.api.deps import CurrentUser, get_session, SessionDep
 from app.core.config import settings
 from app.services.git_service import GitService
 from app.services.supervisor_manager import SupervisorManager
+from app.services.email_service import EmailService
+import jwt
+from pydantic import ValidationError
+from fastapi import Query
+from app.core.security import ALGORITHM, SECRET_KEY
+from app.schemas.token import TokenPayload
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -25,8 +31,19 @@ deployment_connections: Dict[str, Set[WebSocket]] = {}
 
 
 @router.websocket("/ws/{deployment_id}")
-async def deployment_logs_ws(websocket: WebSocket, deployment_id: str):
+async def deployment_logs_ws(
+    websocket: WebSocket,
+    deployment_id: str,
+    token: str = Query(...)
+):
     """WebSocket endpoint for streaming deployment logs in real-time"""
+    # Authenticate via Token
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except (jwt.PyJWTError, ValidationError):
+        await websocket.close(code=1008, reason="Invalid authentication token")
+        return
+
     await websocket.accept()
 
     # Add connection to the set for this deployment
@@ -383,6 +400,29 @@ async def webhook_trigger(
 
         if not hmac.compare_digest(expected_signature, x_hub_signature_256):
             raise HTTPException(status_code=401, detail="Invalid signature")
+
+        # Check GitHub event type
+        event_type = request.headers.get("X-GitHub-Event", "push")
+
+        if event_type == "ping":
+            return {"status": "ok", "message": "Webhook configured successfully"}
+
+        if event_type != "push":
+            return {"status": "ignored", "message": f"Event type '{event_type}' not supported"}
+
+        # Parse body to check branch
+        try:
+            payload = await request.json()
+        except:
+            raise HTTPException(status_code=400, detail="Invalid JSON body")
+
+        ref = payload.get("ref")
+        # specific check for branch
+        if deployment.branch:
+            expected_ref = f"refs/heads/{deployment.branch}"
+            if ref != expected_ref:
+                logger.info(f"Ignored webhook for {deployment.name}: pushed to {ref}, expected {expected_ref}")
+                return {"status": "ignored", "message": f"Push to {ref} ignored. Configured for {deployment.branch}"}
 
         # Set status to running immediately
         deployment.last_status = "running"

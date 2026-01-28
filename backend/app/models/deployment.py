@@ -63,5 +63,5 @@ class DeploymentRead(SQLModel):
     last_logs: Optional[str] = None
     deploy_count: int = 0
     created_at: Optional[datetime] = None
-    secret: str  # Include for webhook setup
+    # secret: str  # Excluded from default read for security
     webhook_url: str = ""  # Calculated field

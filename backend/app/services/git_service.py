@@ -1,7 +1,8 @@
 import subprocess
 import os
 import logging
-from typing import Tuple, Optional
+import shlex
+from typing import Tuple, Optional, List
 
 try:
     import pwd
@@ -13,59 +14,66 @@ logger = logging.getLogger(__name__)
 
 class GitService:
     @staticmethod
-    def validate_command(command: str) -> Tuple[bool, str]:
+    def validate_command(command: str) -> Tuple[bool, str, List[List[str]]]:
         """
-        Validates a shell command for safety.
-        Allowed: npm, yarn, pnpm, bun, pip, uv, poetry, python, php, composer, make, cargo, go, ./
-        Blocked: sudo, su, dangerous file ops, chaining with dangerous intent
+        Validates a shell command for safety and parses it.
+        Returns: (is_valid, error_message, list_of_command_lists)
         """
         if not command:
-            return True, ""
+            return True, "", []
 
         # Normalize
-        cmd = command.strip()
+        cmd_str = command.strip()
 
-        # Check against blacklist
-        blacklist = [
-            "sudo", "su ", "rm -rf", "mv /", "cp /", "chown", "chmod",
-            "|", ">", ">>", "<",  # Block pipes and redirections for simplicity/safety
-            ";", # Block command chaining with semicolon (use && instead)
-            "`", "$(", # Block command substitution
-            "/bin/", "/usr/", "/etc/", "/var/", # strict path blocking
-        ]
+        # Split by && to support simple chaining
+        # using split("&&") is simplistic but valid for "cmd1 && cmd2" structure.
+        # It does NOT handle "cmd1 && cmd2" inside quotes, but that's acceptable limitation for this tool.
+        # Ideally we parse the whole string, but shlex doesn't handle operators like && easily outside shell.
+        # We assume users separate commands by &&.
+        sub_commands_raw = cmd_str.split("&&")
 
-        for term in blacklist:
-            if term in cmd:
-                return False, f"Command contains forbidden term: '{term}'"
+        parsed_commands = []
 
-        # Allow-list for command prefixes (and && chaining)
-        # We split by && to check each sub-command
-        sub_commands = cmd.split("&&")
-
-        allowed_prefixes = [
+        allowed_executables = {
             "npm", "yarn", "pnpm", "bun",
             "pip", "uv", "poetry", "python", "python3",
             "php", "composer",
             "make", "cargo", "go",
-            "./", # Allow local scripts
-            "cd", "echo", "ls", "mkdir", "cp", "mv", "rm", "touch", "(", # Common shell ops
-        ]
+            "echo", "ls", "mkdir", "cp", "mv", "rm", "touch", "cd"
+        }
 
-        for sub_cmd in sub_commands:
-            sub_cmd = sub_cmd.strip()
-            if not sub_cmd:
+        for sub_cmd_raw in sub_commands_raw:
+            sub_cmd_raw = sub_cmd_raw.strip()
+            if not sub_cmd_raw:
                 continue
 
-            is_valid = False
-            for prefix in allowed_prefixes:
-                if sub_cmd.startswith(prefix + " ") or sub_cmd == prefix or sub_cmd.startswith(prefix):
-                     is_valid = True
-                     break
+            try:
+                # Use shlex to parse arguments correctly (handling quotes)
+                parts = shlex.split(sub_cmd_raw)
+            except ValueError as e:
+                return False, f"Syntax error in command: {str(e)}", []
 
-            if not is_valid:
-                return False, f"Command starting with '{sub_cmd.split(' ')[0]}' is not in the allow-list."
+            if not parts:
+                continue
 
-        return True, "Command is valid"
+            executable = parts[0]
+
+            # Allow local scripts (./script.sh)
+            is_local_script = executable.startswith("./") or executable.startswith("/")
+
+            # Check allowlist
+            if not is_local_script and executable not in allowed_executables:
+                return False, f"Command '{executable}' is not in the allowed list.", []
+
+            # Additional checks for dangerous arguments could go here
+            # e.g. blocking ";", "|", ">" is handled implicitly because shlex treats them as args
+            # and we run with shell=False, so they won't be interpreted by shell.
+            # However, we should ensure no argument tries to use shell features that might be passed to a sub-shell?
+            # Since strict execution avoids shell, passing ">" as an arg just passes strictly ">".
+
+            parsed_commands.append(parts)
+
+        return True, "Command is valid", parsed_commands
 
     @staticmethod
     def _run_command(command: list[str], cwd: str) -> Tuple[bool, str]:
@@ -114,6 +122,7 @@ class GitService:
         logs = []
         commit_hash = None
         run_as_user = run_as_user or "root" # Ensure not None
+        parsed_deployment_commands = []
 
         def append_log(msg):
             logs.append(msg)
@@ -122,7 +131,7 @@ class GitService:
 
         # 0. Validate post_command security
         if post_command:
-            is_valid, msg = GitService.validate_command(post_command)
+            is_valid, msg, parsed_deployment_commands = GitService.validate_command(post_command)
             if not is_valid:
                 return False, f"Security Validation Failed: {msg}", None
 
@@ -169,45 +178,67 @@ class GitService:
             append_log(f"✓ Git pull successful. Current commit: {commit_hash}")
 
         # 3. Post Deploy Command
-        if post_command:
+        if parsed_deployment_commands:
             append_log("")
             append_log("▶ Step 2: Running post-deploy command...")
             append_log(f"  $ {post_command}")
             append_log("")
+            append_log(f"  (Running as user: {run_as_user})")
+            append_log("")
 
-            try:
-                # Use specified user
-                user_name = run_as_user
-                append_log(f"  (Running as user: {user_name})")
-                append_log("")
+            current_cwd = project_path
 
-                safe_command = ["sudo", "-u", user_name, "sh", "-c", post_command]
+            for cmd_parts in parsed_deployment_commands:
+                try:
+                    executable = cmd_parts[0]
 
-                # We could stream here, but for stability let's keep it blocking
-                # but maybe with a slightly shorter timeout logic or just wait
-                result = subprocess.run(
-                    safe_command,
-                    cwd=project_path,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    text=True,
-                    timeout=600,
-                )
-                append_log(result.stdout)
+                    # Handle built-in cd
+                    if executable == "cd":
+                        if len(cmd_parts) > 1:
+                            target_dir = cmd_parts[1]
+                            # Resolve path relative to current_cwd
+                            new_path = os.path.abspath(os.path.join(current_cwd, target_dir))
+                            # Security check: prevent cd out of known areas?
+                            # For simplicity we allow it, as user is essentially admin/deployer
+                            if os.path.isdir(new_path):
+                                current_cwd = new_path
+                                append_log(f"  $ cd {target_dir}")
+                            else:
+                                append_log(f"✗ cd failed: Directory not found: {target_dir}")
+                                return False, "\n".join(logs), commit_hash
+                        continue
 
-                if result.returncode != 0:
+                    # Construct command with sudo
+                    # "sudo -u user executable args..."
+                    safe_command = ["sudo", "-u", run_as_user] + cmd_parts
+
+                    # Log the command being run
+                    pretty_cmd = " ".join(cmd_parts)
+                    append_log(f"  $ {pretty_cmd}")
+
+                    result = subprocess.run(
+                        safe_command,
+                        cwd=current_cwd,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT,
+                        text=True,
+                        timeout=600,
+                    )
+                    append_log(result.stdout)
+
+                    if result.returncode != 0:
+                        append_log("")
+                        append_log(f"✗ Command failed with exit code {result.returncode}")
+                        return False, "\n".join(logs), commit_hash
+
+                except subprocess.TimeoutExpired:
                     append_log("")
-                    append_log(f"✗ Post-deploy command failed with exit code {result.returncode}")
+                    append_log("✗ Command timed out after 10 minutes")
                     return False, "\n".join(logs), commit_hash
-
-            except subprocess.TimeoutExpired:
-                append_log("")
-                append_log("✗ Post-deploy command timed out after 10 minutes")
-                return False, "\n".join(logs), commit_hash
-            except Exception as e:
-                append_log("")
-                append_log(f"✗ Error executing post-deploy command: {str(e)}")
-                return False, "\n".join(logs), commit_hash
+                except Exception as e:
+                    append_log("")
+                    append_log(f"✗ Error executing command: {str(e)}")
+                    return False, "\n".join(logs), commit_hash
 
             append_log("")
             append_log("✓ Post-deploy command completed successfully")

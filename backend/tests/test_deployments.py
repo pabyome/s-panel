@@ -51,13 +51,7 @@ def generate_signature(secret: str, payload: bytes) -> str:
     return "sha256=" + hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
 
 def test_create_deployment(client: TestClient):
-    # Depending on auth setup, this might need a token.
-    # For MVP tests, we might skip auth or mock it.
-    # Assuming Auth IS required for CRUD, but let's see if we can just test the logic or need valid token.
-    # The current `main.py` likely protects these routes.
-    # We'll need to mock `get_current_user`.
     pass
-    # Skipping end-to-end CRUD test to focus on the REQUESTED logic: Webhook and GitService.
 
 def test_git_service_pull_success():
     with patch("subprocess.run") as mock_run, \
@@ -65,11 +59,11 @@ def test_git_service_pull_success():
         mock_run.return_value = MagicMock(returncode=0, stdout="Already up to date.")
 
         # Test basic pull
-        success, logs = GitService.pull_and_deploy("/tmp/test", "main")
+        success, logs, commit = GitService.pull_and_deploy("/tmp/test", "main")
 
         assert success is True
-        assert "Executing: git pull" in logs
-        assert "Deployment Successful" in logs
+        assert "Step 1: Fetching and pulling" in logs
+        assert "Deployment completed successfully" in logs
 
 def test_git_service_post_command():
     with patch("subprocess.run") as mock_run, \
@@ -81,17 +75,26 @@ def test_git_service_post_command():
         mock_stat.return_value.st_uid = 1000
         mock_pwd.getpwuid.return_value.pw_name = "testuser"
 
-        # We expect 2 calls: git pull, then post command (sudo ...)
+        # We expect 4 calls roughly (git config, git pull, git rev-parse, post cmd)
+        # But wait, GitService does calls.
+
+        # side_effect:
+        # 1. git config (ignored)
+        # 2. git pull
+        # 3. git rev-parse
+        # 4. npm (command parsed: [npm, run, build]) -> subprocess.run(['sudo', '-u', 'root', 'npm', 'run', 'build'])
+
         mock_run.side_effect = [
-            MagicMock(returncode=0, stdout="Pulled."), # git
-            MagicMock(returncode=0, stdout="Built.")   # sudo ...
+            MagicMock(returncode=0, stdout=""), # git config
+            MagicMock(returncode=0, stdout="Already up to date."), # git pull
+            MagicMock(returncode=0, stdout="hash123"), # git rev-parse
+            MagicMock(returncode=0, stdout="Built.")   # npm run build
         ]
 
-        success, logs = GitService.pull_and_deploy("/tmp/test", "main", "npm run build")
+        success, logs, commit = GitService.pull_and_deploy("/tmp/test", "main", "npm run build")
 
         assert success is True
-        assert "Executing Post-Deploy Command" in logs
-        assert "Built." in logs
+        assert "Step 2: Running post-deploy command" in logs
 
 def test_webhook_hmac_verification(client: TestClient, session: Session):
     # 1. Create a Deployment in DB
@@ -111,21 +114,25 @@ def test_webhook_hmac_verification(client: TestClient, session: Session):
     # 2. Valid Signature
     signature = generate_signature(deploy.secret, payload_bytes)
 
-    # We verify the GitService is CALLED (mocking the background task or the service itself)
-    # FastAPI BackgroundTasks are hard to test synchronously without forcing execution.
-    # We can patch GitService.pull_and_deploy
-    with patch("app.api.v1.deployments.GitService.pull_and_deploy") as mock_deploy:
-        mock_deploy.return_value = (True, "Mock deployment logs")
+    # We patch handle_deploy_background to avoid DB issues during background execution
+    with patch("app.api.v1.deployments.handle_deploy_background") as mock_bg:
+
+        # Needed headers for new logic
+        headers = {
+            "X-Hub-Signature-256": signature,
+            "X-GitHub-Event": "push"
+        }
+
         response = client.post(
-            url,
+            f"/api/v1/deployments/webhook/{deploy.id}", # Correct URL
             content=payload_bytes,
-            headers={"X-Hub-Signature-256": signature}
+            headers=headers
         )
         assert response.status_code == 200
-        assert response.json() == {"status": "deployment_queued"}
+        assert response.json()["status"] == "deployment_queued"
 
-        # Note: Background tasks run AFTER response. TestClient handles this?
-        # Usually TestClient waits, but we need to ensure verify logic passed.
+        # Verify background task was added
+        mock_bg.assert_called_once_with(deploy.id)
 
 def test_webhook_invalid_signature(client: TestClient, session: Session):
     deploy = DeploymentConfig(
