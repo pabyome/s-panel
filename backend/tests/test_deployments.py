@@ -93,7 +93,7 @@ def test_git_service_post_command():
 
         success, logs, commit = GitService.pull_and_deploy("/tmp/test", "main", "npm run build")
 
-        assert success is True
+        assert success is True, f"Deployment failed with logs:\n{logs}"
         assert "Step 2: Running post-deploy command" in logs
 
 def test_webhook_hmac_verification(client: TestClient, session: Session):
@@ -154,12 +154,27 @@ def test_webhook_invalid_signature(client: TestClient, session: Session):
     assert response.status_code == 401
     assert response.json()["detail"] == "Invalid signature"
 
+
 def test_git_service_subshell_syntax():
     # Test (cd foo && bar) syntax
     command = "(cd backend && npm install)"
-    is_valid, msg, parsed = GitService.validate_command(command)
+    is_valid, msg, parsed_groups = GitService.validate_command(command)
     assert is_valid is True
-    # parsed should be [['cd', 'backend'], ['npm', 'install']]
-    assert len(parsed) == 2
-    assert parsed[0] == ['cd', 'backend']
-    assert parsed[1] == ['npm', 'install']
+    # Should be 1 group, isolated=True
+    assert len(parsed_groups) == 1
+    group = parsed_groups[0]
+    assert group.isolated is True
+    assert len(group.commands) == 2
+    assert group.commands[0] == ['cd', 'backend']
+    assert group.commands[1] == ['npm', 'install']
+
+def test_git_service_chained_groups():
+    # Test (A) && (B)
+    command = "(cd backend && npm install) && (cd frontend && npm build)"
+    is_valid, msg, parsed_groups = GitService.validate_command(command)
+    assert is_valid is True
+    assert len(parsed_groups) == 2
+    assert parsed_groups[0].isolated is True
+    assert parsed_groups[1].isolated is True
+    assert parsed_groups[0].commands[0] == ["cd", "backend"]
+    assert parsed_groups[1].commands[0] == ["cd", "frontend"]
