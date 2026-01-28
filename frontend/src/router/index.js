@@ -27,6 +27,7 @@ const routes = [
       { path: 'redis', name: 'redis', component: Redis },
       { path: 'cron', name: 'cron', component: CronJobs },
       { path: 'users', name: 'users', component: Users },
+      { path: 'files', name: 'files', component: () => import('../views/FileManager.vue') },
       { path: 'backups', name: 'backups', component: () => import('../views/Backups.vue') },
       { path: 'settings', name: 'settings', component: () => import('../views/Settings.vue') },
       { path: 'logs', name: 'logs', component: () => import('../views/Logs.vue') },
