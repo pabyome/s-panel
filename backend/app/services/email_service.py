@@ -16,7 +16,18 @@ class EmailService:
             setting = session.get(SystemSetting, "smtp_config")
             if setting:
                 return json.loads(setting.value)
-            return None
+            return {}
+
+    @staticmethod
+    def save_smtp_config(config: dict):
+        with Session(engine) as session:
+            setting = session.get(SystemSetting, "smtp_config")
+            if not setting:
+                setting = SystemSetting(key="smtp_config", value=json.dumps(config))
+            else:
+                setting.value = json.dumps(config)
+            session.add(setting)
+            session.commit()
 
     @staticmethod
     def send_email(subject: str, body: str, recipients: list[str] = None):
@@ -50,3 +61,25 @@ class EmailService:
         except Exception as e:
             logger.exception(f"Failed to send email: {e}")
             return False
+
+    @staticmethod
+    def send_test_email(to_email: str) -> tuple[bool, str]:
+        try:
+            success = EmailService.send_email(
+                subject="Test Email from S-Panel",
+                body="This is a test email to verify your SMTP settings. If you received this, your configuration is correct.",
+                recipients=[to_email]
+            )
+            if success:
+                return True, "Email sent successfully"
+            return False, "Failed to send email. Check logs for details."
+        except Exception as e:
+            return False, str(e)
+
+    @staticmethod
+    def get_deployment_alert_settings() -> dict:
+        config = EmailService.get_smtp_config()
+        return {
+            "enabled": config.get("deployment_alerts_enabled", False),
+            "alert_email": config.get("alert_email_recipient", "")
+        }

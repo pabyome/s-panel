@@ -309,11 +309,18 @@ Logs snippet:
 {logs[-500:] if logs else 'No logs'}
             """
             # Parse notification emails for this deployment
-            recipients = (
-                [e.strip() for e in deployment.notification_emails.split(",") if e.strip()]
-                if deployment.notification_emails
-                else None
-            )
+            recipients = []
+            if deployment.notification_emails:
+                recipients.extend([e.strip() for e in deployment.notification_emails.split(",") if e.strip()])
+
+            # Add global alert recipient if enabled
+            alert_settings = EmailService.get_deployment_alert_settings()
+            if alert_settings["enabled"] and alert_settings["alert_email"]:
+                recipients.append(alert_settings["alert_email"])
+
+            # Deduplicate
+            recipients = list(set(recipients))
+
             EmailService.send_email(subject, body, recipients)
 
         except Exception as e:
@@ -334,11 +341,18 @@ Logs snippet:
             # Send Notification (Exception case)
             from app.services.email_service import EmailService
 
-            recipients = (
-                [e.strip() for e in deployment.notification_emails.split(",") if e.strip()]
-                if deployment.notification_emails
-                else None
-            )
+            recipients = []
+            if deployment.notification_emails:
+                recipients.extend([e.strip() for e in deployment.notification_emails.split(",") if e.strip()])
+
+            # Add global alert recipient if enabled
+            alert_settings = EmailService.get_deployment_alert_settings()
+            if alert_settings["enabled"] and alert_settings["alert_email"]:
+                recipients.append(alert_settings["alert_email"])
+
+            # Deduplicate
+            recipients = list(set(recipients))
+
             EmailService.send_email(
                 f"Deployment {deployment.name}: Failed (Exception)",
                 f"Deployment failed with error: {str(e)}",
