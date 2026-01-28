@@ -23,7 +23,7 @@
               leave-to-class="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
             >
               <!-- Modal panel -->
-              <div v-if="isOpen" class="relative transform overflow-hidden rounded-2xl bg-white text-left shadow-2xl transition-all sm:my-8 sm:w-full sm:max-w-lg border border-slate-100">
+              <div v-if="isOpen" class="relative transform overflow-hidden rounded-2xl bg-white text-left shadow-2xl transition-all sm:my-8 sm:w-full border border-slate-100" :class="sizeClass">
 
                 <!-- Header -->
                 <div class="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4 flex justify-between items-start">
@@ -44,13 +44,15 @@
                 </div>
 
                 <!-- Footer -->
-                <div v-if="showFooter" class="bg-slate-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6 border-t border-slate-100">
-                  <button @click="confirm" type="button" class="inline-flex w-full justify-center rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 sm:ml-3 sm:w-auto transition-colors">
-                    {{ confirmText }}
-                  </button>
-                  <button @click="close" type="button" class="mt-3 inline-flex w-full justify-center rounded-lg bg-white px-3 py-2 text-sm font-semibold text-slate-900 shadow-sm ring-1 ring-inset ring-slate-300 hover:bg-slate-50 sm:mt-0 sm:w-auto transition-colors">
-                    Cancel
-                  </button>
+                <div v-if="showFooter || $slots.footer" class="bg-slate-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6 border-t border-slate-100 gap-3">
+                  <slot name="footer">
+                    <button @click="confirm" type="button" class="inline-flex w-full justify-center rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 sm:ml-3 sm:w-auto transition-colors">
+                      {{ confirmText }}
+                    </button>
+                    <button @click="close" type="button" class="mt-3 inline-flex w-full justify-center rounded-lg bg-white px-3 py-2 text-sm font-semibold text-slate-900 shadow-sm ring-1 ring-inset ring-slate-300 hover:bg-slate-50 sm:mt-0 sm:w-auto transition-colors">
+                      Cancel
+                    </button>
+                  </slot>
                 </div>
               </div>
             </Transition>
@@ -62,6 +64,8 @@
 </template>
 
 <script setup>
+import { computed } from 'vue'
+
 const props = defineProps({
   isOpen: Boolean,
   title: String,
@@ -72,8 +76,20 @@ const props = defineProps({
   showFooter: {
     type: Boolean,
     default: true
+  },
+  size: {
+    type: String,
+    default: 'md',
+    validator: (value) => ['sm', 'md', 'lg', 'xl'].includes(value)
   }
 })
+
+const sizeClass = computed(() => ({
+  'sm:max-w-sm': props.size === 'sm',
+  'sm:max-w-lg': props.size === 'md',
+  'sm:max-w-2xl': props.size === 'lg',
+  'sm:max-w-4xl': props.size === 'xl'
+}))
 
 const emit = defineEmits(['close', 'confirm'])
 

@@ -566,8 +566,9 @@
     </BaseModal>
 
     <!-- Extensions Modal -->
-    <BaseModal :isOpen="isExtensionsOpen" @close="isExtensionsOpen = false" :title="'Extensions - ' + selectedDb?.name" :showFooter="false">
+    <BaseModal :isOpen="isExtensionsOpen" @close="isExtensionsOpen = false" :title="'Extensions - ' + selectedDb?.name" :showFooter="false" size="lg">
       <div class="space-y-4">
+        <!-- Installed Extensions -->
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-2">Installed Extensions</label>
           <div v-if="extensions.length === 0" class="text-sm text-gray-500">No extensions installed.</div>
@@ -581,17 +582,91 @@
             </div>
           </div>
         </div>
+
+        <!-- Popular Extensions Grid -->
         <div class="border-t pt-4">
-          <label class="block text-sm font-medium text-gray-700 mb-2">Add Extension</label>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Available Extensions</label>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-72 overflow-y-auto">
+            <div v-for="ext in popularExtensions" :key="ext.name"
+                 class="flex items-start justify-between rounded-lg border p-3"
+                 :class="ext.available ? 'bg-white border-gray-200' : 'bg-amber-50 border-amber-200'">
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="font-medium text-gray-900 truncate">{{ ext.name }}</span>
+                  <span v-if="ext.available" class="inline-flex items-center rounded-full bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700">Ready</span>
+                  <span v-else class="inline-flex items-center rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-700">Package Required</span>
+                </div>
+                <p class="text-xs text-gray-500 truncate mt-0.5">{{ ext.description }}</p>
+                <span class="text-xs text-indigo-600">{{ ext.category }}</span>
+              </div>
+              <div class="flex items-center gap-1 ml-2 flex-shrink-0">
+                <button v-if="ext.available && !extensions.find(e => e.name === ext.name)"
+                        @click="newExtension = ext.name; manageExtension(ext.name, 'create')"
+                        :disabled="managingExtension"
+                        class="rounded bg-indigo-600 px-2 py-1 text-xs font-semibold text-white hover:bg-indigo-500 disabled:opacity-50">
+                  Add
+                </button>
+                <span v-else-if="ext.available && extensions.find(e => e.name === ext.name)" class="text-xs text-green-600 font-medium">Installed</span>
+                <button v-if="!ext.available"
+                        @click="showExtensionInfo(ext.name)"
+                        class="rounded bg-amber-600 px-2 py-1 text-xs font-semibold text-white hover:bg-amber-500">
+                  Setup
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Manual Extension Input -->
+        <div class="border-t pt-4">
+          <label class="block text-sm font-medium text-gray-700 mb-2">Add Other Extension</label>
           <div class="flex gap-2">
-            <select v-model="newExtension" class="flex-1 rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-              <option value="">Select extension</option>
-              <option v-for="ext in availableExtensions" :key="ext" :value="ext">{{ ext }}</option>
-            </select>
-            <button @click="manageExtension(newExtension, 'create')" :disabled="!newExtension || managingExtension" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50">Add</button>
+            <input v-model="newExtension" type="text" placeholder="Extension name..."
+                   class="flex-1 rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
+            <button @click="manageExtension(newExtension, 'create')" :disabled="!newExtension || managingExtension"
+                    class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50">
+              Add
+            </button>
           </div>
         </div>
       </div>
+    </BaseModal>
+
+    <!-- Extension Info/Install Modal -->
+    <BaseModal :isOpen="isExtensionInfoOpen" @close="isExtensionInfoOpen = false" :title="'Install ' + selectedExtensionInfo?.name">
+      <div v-if="selectedExtensionInfo" class="space-y-4">
+        <div>
+          <div class="flex items-center gap-2 mb-2">
+            <span class="font-medium text-gray-900">{{ selectedExtensionInfo.name }}</span>
+            <span v-if="selectedExtensionInfo.available" class="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Available</span>
+            <span v-else class="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">Package Required</span>
+          </div>
+          <p class="text-sm text-gray-500">{{ selectedExtensionInfo.description }}</p>
+          <p class="text-xs text-indigo-600 mt-1">Category: {{ selectedExtensionInfo.category }}</p>
+        </div>
+
+        <div v-if="!selectedExtensionInfo.available && selectedExtensionInfo.install_instructions" class="bg-gray-900 rounded-lg p-4">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-medium text-gray-300">Installation Commands</span>
+            <span v-if="selectedExtensionInfo.package" class="text-xs text-gray-400">Package: {{ selectedExtensionInfo.package }}</span>
+          </div>
+          <pre class="text-sm text-green-400 whitespace-pre-wrap font-mono">{{ selectedExtensionInfo.install_instructions }}</pre>
+        </div>
+
+        <div v-if="selectedExtensionInfo.available" class="bg-green-50 border border-green-200 rounded-lg p-4">
+          <p class="text-sm text-green-800">✓ This extension is available in PostgreSQL. You can add it directly to your database from the extensions panel.</p>
+        </div>
+      </div>
+      <template #footer>
+        <button type="button" @click="isExtensionInfoOpen = false" class="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50">Close</button>
+        <button v-if="!selectedExtensionInfo?.available && selectedExtensionInfo?.package"
+                @click="installExtensionPackage(selectedExtensionInfo.name)"
+                :disabled="installingPackage"
+                class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50">
+          <svg v-if="installingPackage" class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+          {{ installingPackage ? 'Installing...' : 'Install Package' }}
+        </button>
+      </template>
     </BaseModal>
 
     <!-- Backup Modal -->
@@ -704,7 +779,10 @@ const isExtensionsOpen = ref(false)
 const selectedDb = ref(null)
 const newExtension = ref('')
 const managingExtension = ref(false)
-const availableExtensions = ['uuid-ossp', 'pgcrypto', 'pg_trgm', 'hstore', 'postgis', 'citext', 'ltree', 'tablefunc']
+const popularExtensions = ref([])
+const selectedExtensionInfo = ref(null)
+const isExtensionInfoOpen = ref(false)
+const installingPackage = ref(false)
 
 // Backup Modal
 const isBackupOpen = ref(false)
@@ -799,6 +877,42 @@ const fetchExtensions = async (db) => {
     extensions.value = data
   } catch (e) {
     console.error("Failed to fetch extensions", e)
+  }
+}
+
+const fetchPopularExtensions = async () => {
+  try {
+    const { data } = await axios.get('/api/v1/postgres/extensions/popular')
+    popularExtensions.value = data
+  } catch (e) {
+    console.error("Failed to fetch popular extensions", e)
+  }
+}
+
+const showExtensionInfo = async (extName) => {
+  try {
+    const { data } = await axios.get(`/api/v1/postgres/extensions/${extName}/info`)
+    selectedExtensionInfo.value = data
+    isExtensionInfoOpen.value = true
+  } catch (e) {
+    toast.error("Failed to get extension info")
+  }
+}
+
+const installExtensionPackage = async (extName) => {
+  if (installingPackage.value) return
+  installingPackage.value = true
+  try {
+    await axios.post(`/api/v1/postgres/extensions/${extName}/install-package`)
+    toast.success(`Package for ${extName} installed successfully`)
+    await fetchPopularExtensions()
+    if (selectedExtensionInfo.value?.name === extName) {
+      await showExtensionInfo(extName)
+    }
+  } catch (e) {
+    toast.error(e.response?.data?.detail || "Failed to install package")
+  } finally {
+    installingPackage.value = false
   }
 }
 
@@ -979,7 +1093,7 @@ const toggleRemoteAccess = async () => {
 // Extensions
 const openExtensionsModal = async (db) => {
   selectedDb.value = db
-  await fetchExtensions(db)
+  await Promise.all([fetchExtensions(db), fetchPopularExtensions()])
   isExtensionsOpen.value = true
 }
 

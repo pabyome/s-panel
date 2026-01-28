@@ -240,6 +240,91 @@ class PostgresManager:
 
     # --- Extensions ---
 
+    # Popular PostgreSQL extensions with their package requirements
+    EXTENSION_INFO = {
+        "postgis": {
+            "package": "postgresql-{ver}-postgis-3",
+            "description": "Geographic Information Systems (GIS) support",
+            "category": "GIS",
+        },
+        "postgis_topology": {
+            "package": "postgresql-{ver}-postgis-3",
+            "description": "PostGIS topology support",
+            "category": "GIS",
+        },
+        "pg_trgm": {
+            "package": "postgresql-{ver}",  # Built-in contrib
+            "description": "Trigram matching for similarity searches",
+            "category": "Search",
+        },
+        "uuid-ossp": {
+            "package": "postgresql-{ver}",  # Built-in contrib
+            "description": "UUID generation functions",
+            "category": "Utilities",
+        },
+        "hstore": {
+            "package": "postgresql-{ver}",  # Built-in contrib
+            "description": "Key-value store within a single value",
+            "category": "Data Types",
+        },
+        "pgcrypto": {
+            "package": "postgresql-{ver}",  # Built-in contrib
+            "description": "Cryptographic functions",
+            "category": "Security",
+        },
+        "citext": {
+            "package": "postgresql-{ver}",  # Built-in contrib
+            "description": "Case-insensitive character string type",
+            "category": "Data Types",
+        },
+        "ltree": {
+            "package": "postgresql-{ver}",  # Built-in contrib
+            "description": "Hierarchical tree-like data type",
+            "category": "Data Types",
+        },
+        "pg_stat_statements": {
+            "package": "postgresql-{ver}",  # Built-in contrib
+            "description": "Track execution statistics of SQL statements",
+            "category": "Monitoring",
+        },
+        "tablefunc": {
+            "package": "postgresql-{ver}",  # Built-in contrib
+            "description": "Functions for crosstab and other table manipulations",
+            "category": "Utilities",
+        },
+        "unaccent": {
+            "package": "postgresql-{ver}",  # Built-in contrib
+            "description": "Remove accents from text",
+            "category": "Search",
+        },
+        "fuzzystrmatch": {
+            "package": "postgresql-{ver}",  # Built-in contrib
+            "description": "Fuzzy string matching (soundex, levenshtein)",
+            "category": "Search",
+        },
+        "timescaledb": {
+            "package": "timescaledb-2-postgresql-{ver}",
+            "description": "Time-series database extension",
+            "category": "Time Series",
+            "repo": "https://packagecloud.io/timescale/timescaledb",
+        },
+        "pg_cron": {
+            "package": "postgresql-{ver}-cron",
+            "description": "Job scheduler for PostgreSQL",
+            "category": "Utilities",
+        },
+        "vector": {
+            "package": "postgresql-{ver}-pgvector",
+            "description": "Vector similarity search (AI/ML embeddings)",
+            "category": "AI/ML",
+        },
+        "plpgsql": {
+            "package": "postgresql-{ver}",  # Built-in
+            "description": "PL/pgSQL procedural language (built-in)",
+            "category": "Languages",
+        },
+    }
+
     @staticmethod
     def list_extensions(db_name: str) -> List[Dict[str, str]]:
         # List installed extensions
@@ -256,6 +341,128 @@ class PostgresManager:
             if len(parts) >= 2:
                 exts.append({"name": parts[0].strip(), "version": parts[1].strip()})
         return exts
+
+    @staticmethod
+    def list_available_extensions() -> List[Dict[str, Any]]:
+        """List all extensions available to be installed (from pg_available_extensions)."""
+        sql = "SELECT name, default_version, comment FROM pg_available_extensions ORDER BY name;"
+        success, output = PostgresManager._run_psql(sql, as_csv=True)
+        if not success:
+            return []
+
+        exts = []
+        for line in output.splitlines():
+            if not line.strip():
+                continue
+            parts = line.split("|")
+            if len(parts) >= 2:
+                ext_name = parts[0].strip()
+                info = PostgresManager.EXTENSION_INFO.get(ext_name, {})
+                exts.append(
+                    {
+                        "name": ext_name,
+                        "version": parts[1].strip() if len(parts) > 1 else "",
+                        "description": parts[2].strip() if len(parts) > 2 else info.get("description", ""),
+                        "category": info.get("category", "Other"),
+                        "available": True,
+                    }
+                )
+        return exts
+
+    @staticmethod
+    def get_extension_info(ext_name: str) -> Dict[str, Any]:
+        """Get detailed info about an extension including installation instructions."""
+        pg_version = PostgresManager.get_version()
+        major_ver = pg_version.split(".")[0] if pg_version else "14"
+
+        # Check if extension is available in PostgreSQL
+        sql = f"SELECT name, default_version, comment FROM pg_available_extensions WHERE name = '{ext_name}';"
+        success, output = PostgresManager._run_psql(sql, as_csv=True)
+
+        is_available = success and output.strip()
+
+        info = PostgresManager.EXTENSION_INFO.get(ext_name, {})
+        package = info.get("package", "").replace("{ver}", major_ver)
+
+        result = {
+            "name": ext_name,
+            "available": is_available,
+            "description": info.get("description", "No description available"),
+            "category": info.get("category", "Other"),
+            "package": package,
+            "install_instructions": None,
+        }
+
+        if not is_available:
+            # Generate installation instructions
+            if package:
+                instructions = f"# Install the required package:\nsudo apt-get update\nsudo apt-get install -y {package}\n\n# Then restart PostgreSQL:\nsudo systemctl restart postgresql"
+                if info.get("repo"):
+                    instructions = f"# First add the repository:\n# See: {info['repo']}\n\n" + instructions
+                result["install_instructions"] = instructions
+            else:
+                result["install_instructions"] = (
+                    f"# Extension '{ext_name}' may require manual installation.\n# Check PostgreSQL documentation or extension website."
+                )
+
+        return result
+
+    @staticmethod
+    def get_popular_extensions() -> List[Dict[str, Any]]:
+        """Get list of popular extensions with availability status."""
+        pg_version = PostgresManager.get_version()
+        major_ver = pg_version.split(".")[0] if pg_version else "14"
+
+        # Get list of available extensions
+        available = set()
+        sql = "SELECT name FROM pg_available_extensions;"
+        success, output = PostgresManager._run_psql(sql, as_csv=True)
+        if success:
+            for line in output.splitlines():
+                if line.strip():
+                    available.add(line.strip())
+
+        results = []
+        for ext_name, info in PostgresManager.EXTENSION_INFO.items():
+            package = info.get("package", "").replace("{ver}", major_ver)
+            results.append(
+                {
+                    "name": ext_name,
+                    "description": info.get("description", ""),
+                    "category": info.get("category", "Other"),
+                    "available": ext_name in available,
+                    "package": package,
+                }
+            )
+
+        return sorted(results, key=lambda x: (not x["available"], x["category"], x["name"]))
+
+    @staticmethod
+    def install_extension_package(ext_name: str) -> Tuple[bool, str]:
+        """Install the system package required for an extension."""
+        pg_version = PostgresManager.get_version()
+        major_ver = pg_version.split(".")[0] if pg_version else "14"
+
+        info = PostgresManager.EXTENSION_INFO.get(ext_name)
+        if not info:
+            return False, f"Unknown extension: {ext_name}. Manual installation may be required."
+
+        package = info.get("package", "").replace("{ver}", major_ver)
+        if not package:
+            return False, f"No package information available for {ext_name}"
+
+        # Update apt
+        PostgresManager._run_command(["apt-get", "update"])
+
+        # Install package
+        success, output = PostgresManager._run_command(["apt-get", "install", "-y", package])
+        if not success:
+            return False, f"Failed to install package {package}: {output}"
+
+        # Restart PostgreSQL to load new extension
+        PostgresManager._run_command(["systemctl", "restart", "postgresql"])
+
+        return True, f"Package {package} installed successfully. PostgreSQL restarted."
 
     @staticmethod
     def manage_extension(db_name: str, ext_name: str, action: str) -> Tuple[bool, str]:

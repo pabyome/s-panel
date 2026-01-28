@@ -70,6 +70,33 @@ def list_extensions(name: str, current_user: CurrentUser):
     return PostgresManager.list_extensions(name)
 
 
+@router.get("/extensions/available")
+def list_available_extensions(current_user: CurrentUser):
+    """List all extensions available in PostgreSQL (installed packages)."""
+    return PostgresManager.list_available_extensions()
+
+
+@router.get("/extensions/popular")
+def list_popular_extensions(current_user: CurrentUser):
+    """List popular extensions with availability status and install info."""
+    return PostgresManager.get_popular_extensions()
+
+
+@router.get("/extensions/{ext_name}/info")
+def get_extension_info(ext_name: str, current_user: CurrentUser):
+    """Get detailed info about an extension including installation instructions."""
+    return PostgresManager.get_extension_info(ext_name)
+
+
+@router.post("/extensions/{ext_name}/install-package")
+def install_extension_package(ext_name: str, current_user: CurrentUser):
+    """Install the system package required for an extension."""
+    success, msg = PostgresManager.install_extension_package(ext_name)
+    if not success:
+        raise HTTPException(status_code=500, detail=msg)
+    return {"status": "ok", "message": msg}
+
+
 @router.post("/databases/{name}/extensions")
 def manage_extension(name: str, ext: ExtensionAction, current_user: CurrentUser):
     success, msg = PostgresManager.manage_extension(name, ext.name, ext.action)
