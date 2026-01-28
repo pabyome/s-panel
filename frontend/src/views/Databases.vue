@@ -243,6 +243,9 @@
                     </div>
                   </td>
                 </tr>
+                <tr v-if="users.length === 0">
+                  <td colspan="4" class="px-6 py-8 text-center text-sm text-gray-500">No users found. Create your first database user to get started.</td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -424,54 +427,86 @@
 
     <!-- Create DB Modal -->
     <BaseModal :isOpen="isCreateDbOpen" @close="isCreateDbOpen = false" title="Create Database" :showFooter="false">
-      <form @submit.prevent="createDatabase" class="space-y-4">
+      <form @submit.prevent="createDatabase" class="space-y-5">
         <div>
-          <label class="block text-sm font-medium text-gray-700">Database Name</label>
-          <input type="text" v-model="createDbForm.name" required pattern="^[a-zA-Z0-9_]+$" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" placeholder="my_app_db">
+          <label class="block text-sm font-medium text-gray-700 mb-2">Database Name</label>
+          <input
+            type="text"
+            v-model="createDbForm.name"
+            required
+            pattern="^[a-zA-Z0-9_]+$"
+            class="block w-full rounded-xl border-0 py-2.5 px-4 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm"
+            placeholder="my_app_db"
+          >
           <p class="mt-1 text-xs text-gray-500">Only letters, numbers, and underscores allowed</p>
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700">Owner</label>
-          <select v-model="createDbForm.owner" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+          <label class="block text-sm font-medium text-gray-700 mb-2">Owner</label>
+          <select
+            v-model="createDbForm.owner"
+            class="block w-full rounded-xl border-0 py-2.5 px-4 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm"
+          >
             <option v-for="u in users" :key="u.name" :value="u.name">{{ u.name }}</option>
           </select>
+          <p class="mt-1 text-xs text-gray-500">The PostgreSQL user who will own this database</p>
         </div>
-        <div class="flex justify-end gap-3 pt-4">
-          <button type="button" @click="isCreateDbOpen = false" class="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50">Cancel</button>
-          <button type="submit" :disabled="isCreatingDb" class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50">
+        <div class="flex gap-3 pt-2">
+          <button type="button" @click="isCreateDbOpen = false" class="flex-1 rounded-xl bg-gray-100 px-4 py-2.5 text-sm font-semibold text-gray-700 transition-all hover:bg-gray-200">Cancel</button>
+          <button type="submit" :disabled="isCreatingDb" class="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50">
             <svg v-if="isCreatingDb" class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-            {{ isCreatingDb ? 'Creating...' : 'Create' }}
+            {{ isCreatingDb ? 'Creating...' : 'Create Database' }}
           </button>
         </div>
       </form>
     </BaseModal>
 
     <!-- Create User Modal -->
-    <BaseModal :isOpen="isCreateUserOpen" @close="isCreateUserOpen = false" title="Create User" :showFooter="false">
-      <form @submit.prevent="createUser" class="space-y-4">
+    <BaseModal :isOpen="isCreateUserOpen" @close="isCreateUserOpen = false" title="Create PostgreSQL User" :showFooter="false">
+      <form @submit.prevent="createUser" class="space-y-5">
         <div>
-          <label class="block text-sm font-medium text-gray-700">Username</label>
-          <input type="text" v-model="createUserForm.name" required pattern="^[a-zA-Z0-9_]+$" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" placeholder="db_user">
+          <label class="block text-sm font-medium text-gray-700 mb-2">Username</label>
+          <input
+            type="text"
+            v-model="createUserForm.name"
+            required
+            pattern="^[a-zA-Z0-9_]+$"
+            class="block w-full rounded-xl border-0 py-2.5 px-4 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm"
+            placeholder="db_user"
+          >
+          <p class="mt-1 text-xs text-gray-500">Only letters, numbers, and underscores allowed</p>
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700">Password</label>
-          <input type="password" v-model="createUserForm.password" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+          <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+          <input
+            type="password"
+            v-model="createUserForm.password"
+            required
+            class="block w-full rounded-xl border-0 py-2.5 px-4 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm"
+            placeholder="••••••••"
+          >
         </div>
-        <div class="flex items-center gap-6 pt-2">
-          <label class="flex items-center gap-2">
+        <div class="rounded-xl bg-gray-50 p-4 space-y-3">
+          <p class="text-sm font-medium text-gray-700">Permissions</p>
+          <label class="flex items-center gap-3 cursor-pointer">
             <input type="checkbox" v-model="createUserForm.createdb" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600">
-            <span class="text-sm text-gray-700">Can Create DBs</span>
+            <div>
+              <span class="text-sm font-medium text-gray-900">Can Create Databases</span>
+              <p class="text-xs text-gray-500">Allow this user to create new databases</p>
+            </div>
           </label>
-          <label class="flex items-center gap-2">
+          <label class="flex items-center gap-3 cursor-pointer">
             <input type="checkbox" v-model="createUserForm.superuser" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600">
-            <span class="text-sm text-gray-700">Superuser</span>
+            <div>
+              <span class="text-sm font-medium text-gray-900">Superuser</span>
+              <p class="text-xs text-gray-500">Full administrative access (use with caution)</p>
+            </div>
           </label>
         </div>
-        <div class="flex justify-end gap-3 pt-4">
-          <button type="button" @click="isCreateUserOpen = false" class="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50">Cancel</button>
-          <button type="submit" :disabled="isCreatingUser" class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50">
+        <div class="flex gap-3 pt-2">
+          <button type="button" @click="isCreateUserOpen = false" class="flex-1 rounded-xl bg-gray-100 px-4 py-2.5 text-sm font-semibold text-gray-700 transition-all hover:bg-gray-200">Cancel</button>
+          <button type="submit" :disabled="isCreatingUser" class="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50">
             <svg v-if="isCreatingUser" class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-            {{ isCreatingUser ? 'Creating...' : 'Create' }}
+            {{ isCreatingUser ? 'Creating...' : 'Create User' }}
           </button>
         </div>
       </form>
@@ -479,16 +514,22 @@
 
     <!-- Change Password Modal -->
     <BaseModal :isOpen="isPassOpen" @close="isPassOpen = false" :title="'Change Password for ' + passForm.name" :showFooter="false">
-      <form @submit.prevent="changePassword" class="space-y-4">
+      <form @submit.prevent="changePassword" class="space-y-5">
         <div>
-          <label class="block text-sm font-medium text-gray-700">New Password</label>
-          <input type="password" v-model="passForm.password" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+          <label class="block text-sm font-medium text-gray-700 mb-2">New Password</label>
+          <input
+            type="password"
+            v-model="passForm.password"
+            required
+            class="block w-full rounded-xl border-0 py-2.5 px-4 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm"
+            placeholder="••••••••"
+          >
         </div>
-        <div class="flex justify-end gap-3 pt-4">
-          <button type="button" @click="isPassOpen = false" class="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50">Cancel</button>
-          <button type="submit" :disabled="isChangingPassword" class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50">
+        <div class="flex gap-3 pt-2">
+          <button type="button" @click="isPassOpen = false" class="flex-1 rounded-xl bg-gray-100 px-4 py-2.5 text-sm font-semibold text-gray-700 transition-all hover:bg-gray-200">Cancel</button>
+          <button type="submit" :disabled="isChangingPassword" class="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50">
             <svg v-if="isChangingPassword" class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-            {{ isChangingPassword ? 'Updating...' : 'Update' }}
+            {{ isChangingPassword ? 'Updating...' : 'Update Password' }}
           </button>
         </div>
       </form>
@@ -496,18 +537,27 @@
 
     <!-- Grant Access Modal -->
     <BaseModal :isOpen="isGrantOpen" @close="isGrantOpen = false" :title="'Grant Access to ' + grantForm.user" :showFooter="false">
-      <form @submit.prevent="grantAccess" class="space-y-4">
+      <form @submit.prevent="grantAccess" class="space-y-5">
         <div>
-          <label class="block text-sm font-medium text-gray-700">Database</label>
-          <select v-model="grantForm.database" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+          <label class="block text-sm font-medium text-gray-700 mb-2">Database</label>
+          <select
+            v-model="grantForm.database"
+            required
+            class="block w-full rounded-xl border-0 py-2.5 px-4 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm"
+          >
             <option value="">Select a database</option>
             <option v-for="db in databases" :key="db.name" :value="db.name">{{ db.name }}</option>
           </select>
         </div>
-        <p class="text-sm text-gray-500">This will grant ALL privileges on the selected database to {{ grantForm.user }}.</p>
-        <div class="flex justify-end gap-3 pt-4">
-          <button type="button" @click="isGrantOpen = false" class="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50">Cancel</button>
-          <button type="submit" :disabled="isGranting" class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50">
+        <div class="rounded-xl bg-amber-50 p-4">
+          <div class="flex gap-3">
+            <svg class="h-5 w-5 text-amber-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" /></svg>
+            <p class="text-sm text-amber-800">This will grant <strong>ALL privileges</strong> on the selected database to <strong>{{ grantForm.user }}</strong>.</p>
+          </div>
+        </div>
+        <div class="flex gap-3 pt-2">
+          <button type="button" @click="isGrantOpen = false" class="flex-1 rounded-xl bg-gray-100 px-4 py-2.5 text-sm font-semibold text-gray-700 transition-all hover:bg-gray-200">Cancel</button>
+          <button type="submit" :disabled="isGranting" class="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50">
             <svg v-if="isGranting" class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
             {{ isGranting ? 'Granting...' : 'Grant Access' }}
           </button>

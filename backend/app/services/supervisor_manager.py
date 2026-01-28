@@ -1,6 +1,7 @@
 import xmlrpc.client
 import os
 import socket
+import psutil
 from typing import List, Dict, Any, Tuple
 
 
@@ -11,6 +12,20 @@ class SupervisorManager:
     @classmethod
     def _get_rpc(cls):
         return xmlrpc.client.ServerProxy(cls.RPC_URL)
+
+    @classmethod
+    def _get_process_ports(cls, pid: int) -> List[int]:
+        """Get all ports that a specific process is listening on."""
+        ports = []
+        if not pid:
+            return ports
+        try:
+            for conn in psutil.net_connections(kind="inet"):
+                if conn.pid == pid and conn.status == "LISTEN":
+                    ports.append(conn.laddr.port)
+            return sorted(ports)
+        except (psutil.AccessDenied, Exception):
+            return []
 
     @classmethod
     def is_running(cls) -> Dict[str, Any]:
@@ -40,14 +55,17 @@ class SupervisorManager:
         try:
             with cls._get_rpc() as supervisor:
                 processes = supervisor.supervisor.getAllProcessInfo()
-                # Enrich with uptime calculation
+                # Enrich with uptime calculation and port detection
                 for proc in processes:
                     if proc.get("start", 0) > 0 and proc.get("statename") == "RUNNING":
                         import time
 
                         proc["uptime_seconds"] = int(time.time()) - proc["start"]
+                        # Detect listening ports for running processes
+                        proc["ports"] = cls._get_process_ports(proc.get("pid"))
                     else:
                         proc["uptime_seconds"] = 0
+                        proc["ports"] = []
                 return processes
         except Exception as e:
             print(f"Supervisor RPC Error: {e}")

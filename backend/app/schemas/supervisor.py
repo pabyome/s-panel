@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 
 
 class SupervisorProcess(BaseModel):
@@ -12,6 +12,7 @@ class SupervisorProcess(BaseModel):
     stop: Optional[int] = 0
     pid: Optional[int] = 0
     uptime_seconds: Optional[int] = 0
+    ports: Optional[List[int]] = []
 
 
 class SupervisorConfigUpdate(BaseModel):
@@ -33,4 +34,3 @@ class SupervisorConfigCreate(BaseModel):
     autostart: bool = True
     autorestart: bool = True
     numprocs: int = 1
-

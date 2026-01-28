@@ -9,8 +9,32 @@
           </svg>
         </button>
         <div>
-          <h1 class="text-2xl font-bold text-gray-900">{{ route.params.name }}</h1>
-          <p class="mt-0.5 text-sm text-gray-500">Process logs and configuration</p>
+          <div class="flex items-center gap-3">
+            <h1 class="text-2xl font-bold text-gray-900">{{ route.params.name }}</h1>
+            <span v-if="processInfo" :class="[
+              processInfo.statename === 'RUNNING' ? 'bg-emerald-100 text-emerald-700' :
+              processInfo.statename === 'STOPPED' ? 'bg-gray-100 text-gray-700' :
+              'bg-red-100 text-red-700',
+              'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium'
+            ]">
+              {{ processInfo.statename }}
+            </span>
+          </div>
+          <div class="mt-0.5 flex items-center gap-3 text-sm text-gray-500">
+            <span>Process logs and configuration</span>
+            <template v-if="processInfo && processInfo.ports && processInfo.ports.length > 0">
+              <span class="text-gray-300">|</span>
+              <span class="inline-flex items-center gap-1.5">
+                <svg class="h-4 w-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 14.25h13.5m-13.5 0a3 3 0 0 1-3-3m3 3a3 3 0 1 0 0 6h13.5a3 3 0 1 0 0-6m-16.5-3a3 3 0 0 1 3-3h13.5a3 3 0 0 1 3 3m-19.5 0a4.5 4.5 0 0 1 .9-2.7L5.737 5.1a3.375 3.375 0 0 1 2.7-1.35h7.126c1.062 0 2.062.5 2.7 1.35l2.587 3.45a4.5 4.5 0 0 1 .9 2.7m0 0a3 3 0 0 1-3 3m0 3h.008v.008h-.008v-.008Zm0-6h.008v.008h-.008v-.008Zm-3 6h.008v.008h-.008v-.008Zm0-6h.008v.008h-.008v-.008Z" />
+                </svg>
+                <span class="font-medium">Port{{ processInfo.ports.length > 1 ? 's' : '' }}:</span>
+                <span v-for="(port, idx) in processInfo.ports" :key="port" class="font-mono text-indigo-600 font-medium">
+                  {{ port }}<span v-if="idx < processInfo.ports.length - 1">, </span>
+                </span>
+              </span>
+            </template>
+          </div>
         </div>
       </div>
 
@@ -168,13 +192,28 @@ const route = useRoute()
 const currentTab = ref('Logs')
 const logs = ref('')
 const configContent = ref('')
+const processInfo = ref(null)
 let pollInterval = null
+let processInfoInterval = null
 
 // Loading states
 const isClearingLogs = ref(false)
 const isSavingConfig = ref(false)
 const isClearLogsModalOpen = ref(false)
 const isSaveConfigModalOpen = ref(false)
+
+const fetchProcessInfo = async () => {
+    try {
+        const response = await axios.get('/api/v1/supervisor/processes')
+        const processes = response.data
+        const proc = processes.find(p => p.name === route.params.name)
+        if (proc) {
+            processInfo.value = proc
+        }
+    } catch (e) {
+        console.error("Failed to fetch process info")
+    }
+}
 
 const fetchLogs = async () => {
     try {
@@ -247,10 +286,13 @@ watch(currentTab, (newTab) => {
 
 onMounted(() => {
     fetchLogs()
+    fetchProcessInfo()
     pollInterval = setInterval(fetchLogs, 3000)
+    processInfoInterval = setInterval(fetchProcessInfo, 5000)
 })
 
 onUnmounted(() => {
     clearInterval(pollInterval)
+    clearInterval(processInfoInterval)
 })
 </script>

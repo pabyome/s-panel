@@ -2,7 +2,8 @@ import psutil
 import os
 import time
 import platform
-from typing import Dict, Any
+from typing import Dict, Any, List, Optional
+
 
 class SystemMonitor:
     @staticmethod
@@ -32,7 +33,7 @@ class SystemMonitor:
     @staticmethod
     def get_disk_stats() -> Dict[str, Any]:
         try:
-            disk = psutil.disk_usage('/')
+            disk = psutil.disk_usage("/")
             return {
                 "total": disk.total,
                 "used": disk.used,
@@ -40,7 +41,7 @@ class SystemMonitor:
                 "percent": disk.percent,
             }
         except Exception:
-             return {"total": 0, "used": 0, "free": 0, "percent": 0}
+            return {"total": 0, "used": 0, "free": 0, "percent": 0}
 
     @staticmethod
     def get_load_average() -> Dict[str, Any]:
@@ -53,7 +54,7 @@ class SystemMonitor:
                 "15min": load15,
             }
         except Exception:
-             # Fallback
+            # Fallback
             return {"1min": 0, "5min": 0, "15min": 0}
 
     @staticmethod
@@ -61,16 +62,12 @@ class SystemMonitor:
         try:
             return int(time.time() - psutil.boot_time())
         except Exception:
-             return 0
+            return 0
 
     @staticmethod
     def get_os_info() -> Dict[str, str]:
         try:
-            return {
-                "system": platform.system(),
-                "release": platform.release(),
-                "version": platform.version()
-            }
+            return {"system": platform.system(), "release": platform.release(), "version": platform.version()}
         except Exception:
             return {"system": "Unknown", "release": "Unknown", "version": "Unknown"}
 
@@ -78,7 +75,9 @@ class SystemMonitor:
     def get_top_processes(limit: int = 20) -> list[Dict[str, Any]]:
         processes = []
         try:
-            for proc in psutil.process_iter(['pid', 'name', 'username', 'cpu_percent', 'memory_percent', 'create_time']):
+            for proc in psutil.process_iter(
+                ["pid", "name", "username", "cpu_percent", "memory_percent", "create_time"]
+            ):
                 try:
                     # fetch info
                     pInfo = proc.info
@@ -87,9 +86,124 @@ class SystemMonitor:
                     pass
 
             # Sort by cpu_percent desc
-            processes.sort(key=lambda x: x['cpu_percent'] or 0, reverse=True)
+            processes.sort(key=lambda x: x["cpu_percent"] or 0, reverse=True)
             return processes[:limit]
         except Exception:
+            return []
+
+    # --- Port Utilities ---
+
+    @staticmethod
+    def is_port_in_use(port: int) -> bool:
+        """Check if a specific port is in use."""
+        try:
+            for conn in psutil.net_connections(kind="inet"):
+                if conn.laddr.port == port and conn.status == "LISTEN":
+                    return True
+            return False
+        except (psutil.AccessDenied, Exception):
+            # Fallback: try to bind to the port
+            import socket
+
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                try:
+                    s.bind(("", port))
+                    return False
+                except OSError:
+                    return True
+
+    @staticmethod
+    def get_port_info(port: int) -> Optional[Dict[str, Any]]:
+        """Get detailed information about what's using a specific port."""
+        try:
+            for conn in psutil.net_connections(kind="inet"):
+                if conn.laddr.port == port and conn.status == "LISTEN":
+                    info = {
+                        "port": port,
+                        "in_use": True,
+                        "pid": conn.pid,
+                        "status": conn.status,
+                        "address": conn.laddr.ip,
+                        "process_name": None,
+                        "process_user": None,
+                    }
+                    if conn.pid:
+                        try:
+                            proc = psutil.Process(conn.pid)
+                            info["process_name"] = proc.name()
+                            info["process_user"] = proc.username()
+                        except (psutil.NoSuchProcess, psutil.AccessDenied):
+                            pass
+                    return info
+            return {"port": port, "in_use": False}
+        except (psutil.AccessDenied, Exception) as e:
+            return {"port": port, "in_use": None, "error": str(e)}
+
+    @staticmethod
+    def get_listening_ports() -> List[Dict[str, Any]]:
+        """Get all listening ports on the system."""
+        ports = []
+        try:
+            seen_ports = set()
+            for conn in psutil.net_connections(kind="inet"):
+                if conn.status == "LISTEN" and conn.laddr.port not in seen_ports:
+                    seen_ports.add(conn.laddr.port)
+                    info = {
+                        "port": conn.laddr.port,
+                        "address": conn.laddr.ip,
+                        "pid": conn.pid,
+                        "process_name": None,
+                        "process_user": None,
+                    }
+                    if conn.pid:
+                        try:
+                            proc = psutil.Process(conn.pid)
+                            info["process_name"] = proc.name()
+                            info["process_user"] = proc.username()
+                        except (psutil.NoSuchProcess, psutil.AccessDenied):
+                            pass
+                    ports.append(info)
+            ports.sort(key=lambda x: x["port"])
+            return ports
+        except (psutil.AccessDenied, Exception):
+            return []
+
+    @staticmethod
+    def find_free_port(start: int = 3000, end: int = 9000) -> Optional[int]:
+        """Find the next available port in a range."""
+        try:
+            used_ports = set()
+            for conn in psutil.net_connections(kind="inet"):
+                if conn.status == "LISTEN":
+                    used_ports.add(conn.laddr.port)
+
+            for port in range(start, end + 1):
+                if port not in used_ports:
+                    return port
+            return None
+        except (psutil.AccessDenied, Exception):
+            # Fallback: brute force check
+            import socket
+
+            for port in range(start, end + 1):
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    try:
+                        s.bind(("", port))
+                        return port
+                    except OSError:
+                        continue
+            return None
+
+    @staticmethod
+    def get_process_ports(pid: int) -> List[int]:
+        """Get all ports that a specific process is listening on."""
+        ports = []
+        try:
+            for conn in psutil.net_connections(kind="inet"):
+                if conn.pid == pid and conn.status == "LISTEN":
+                    ports.append(conn.laddr.port)
+            return sorted(ports)
+        except (psutil.AccessDenied, Exception):
             return []
 
     @classmethod
@@ -101,5 +215,5 @@ class SystemMonitor:
             "disk": cls.get_disk_stats(),
             "load_avg": cls.get_load_average(),
             "uptime": cls.get_uptime(),
-            "os_info": cls.get_os_info()
+            "os_info": cls.get_os_info(),
         }
