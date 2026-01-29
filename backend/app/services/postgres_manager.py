@@ -1,8 +1,8 @@
-import subprocess
 import os
-import shutil
-from typing import List, Dict, Any, Tuple, Optional
 import re
+import shutil
+import subprocess
+from typing import Any
 
 
 class PostgresManager:
@@ -12,7 +12,7 @@ class PostgresManager:
     """
 
     @staticmethod
-    def _run_command(command: List[str], check=False) -> Tuple[bool, str]:
+    def _run_command(command: list[str], check=False) -> tuple[bool, str]:
         try:
             result = subprocess.run(command, check=check, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             if result.returncode == 0:
@@ -22,7 +22,23 @@ class PostgresManager:
             return False, str(e)
 
     @staticmethod
-    def _run_psql(sql: str, db: str = "postgres", as_csv=False) -> Tuple[bool, str]:
+    def _escape_literal(s: str) -> str:
+        """Escape a string literal for SQL (replaces ' with '')."""
+        if s is None:
+            return ""
+        # In standard SQL, single quote is escaped by another single quote
+        return s.replace("'", "''")
+
+    @staticmethod
+    def _escape_identifier(s: str) -> str:
+        """Escape an identifier for SQL (replaces " with "" and wraps in "")."""
+        if s is None:
+            return '""'
+        escaped = s.replace('"', '""')
+        return f'"{escaped}"'
+
+    @staticmethod
+    def _run_psql(sql: str, db: str = "postgres", as_csv=False) -> tuple[bool, str]:
         """Runs a SQL command as the postgres system user."""
         cmd = ["sudo", "-u", "postgres", "psql", "-d", db]
 
@@ -48,7 +64,7 @@ class PostgresManager:
         return "Unknown"
 
     @staticmethod
-    def get_service_status() -> Dict[str, Any]:
+    def get_service_status() -> dict[str, Any]:
         """Returns complex status object."""
         installed = PostgresManager.is_installed()
         status = {
@@ -81,7 +97,7 @@ class PostgresManager:
         return status
 
     @staticmethod
-    def install_service() -> Tuple[bool, str]:
+    def install_service() -> tuple[bool, str]:
         # Update apt and install
         cmd = ["apt-get", "update"]
         PostgresManager._run_command(cmd)
@@ -97,12 +113,12 @@ class PostgresManager:
         return False, out
 
     @staticmethod
-    def uninstall_service() -> Tuple[bool, str]:
+    def uninstall_service() -> tuple[bool, str]:
         cmd = ["apt-get", "remove", "--purge", "-y", "postgresql", "postgresql-*"]
         return PostgresManager._run_command(cmd)
 
     @staticmethod
-    def control_service(action: str) -> Tuple[bool, str]:
+    def control_service(action: str) -> tuple[bool, str]:
         if action not in ["start", "stop", "restart", "reload"]:
             return False, "Invalid action"
         return PostgresManager._run_command(["systemctl", action, "postgresql"])
@@ -110,7 +126,7 @@ class PostgresManager:
     # --- Database Operations ---
 
     @staticmethod
-    def list_databases() -> List[Dict[str, str]]:
+    def list_databases() -> list[dict[str, str]]:
         # List DBs with Owner and Size
         sql = "SELECT d.datname, pg_catalog.pg_get_userbyid(d.datdba), pg_size_pretty(pg_database_size(d.datname)) FROM pg_catalog.pg_database d ORDER BY 1;"
         success, output = PostgresManager._run_psql(sql, as_csv=True)
@@ -127,17 +143,21 @@ class PostgresManager:
         return dbs
 
     @staticmethod
-    def create_database(name: str, owner: str = "postgres") -> Tuple[bool, str]:
+    def create_database(name: str, owner: str = "postgres") -> tuple[bool, str]:
         # Validate name to prevent injection
         if not re.match(r"^[a-zA-Z0-9_]+$", name):
             return False, "Invalid database name"
+
+        # Validate owner
+        if not re.match(r"^[a-zA-Z0-9_]+$", owner):
+            return False, "Invalid owner name"
 
         # Use createdb command wrapper
         cmd = ["sudo", "-u", "postgres", "createdb", "-O", owner, name]
         return PostgresManager._run_command(cmd)
 
     @staticmethod
-    def delete_database(name: str) -> Tuple[bool, str]:
+    def delete_database(name: str) -> tuple[bool, str]:
         if not re.match(r"^[a-zA-Z0-9_]+$", name):
             return False, "Invalid database name"
         cmd = ["sudo", "-u", "postgres", "dropdb", name]
@@ -146,7 +166,7 @@ class PostgresManager:
     # --- User Operations ---
 
     @staticmethod
-    def list_users() -> List[Dict[str, Any]]:
+    def list_users() -> list[dict[str, Any]]:
         # Use pg_roles which is more reliable than pg_user
         sql = "SELECT rolname, rolsuper, rolcreatedb, rolcreaterole FROM pg_catalog.pg_roles WHERE rolcanlogin = true ORDER BY rolname;"
         success, output = PostgresManager._run_psql(sql, as_csv=True)
@@ -170,7 +190,7 @@ class PostgresManager:
         return users
 
     @staticmethod
-    def create_user(name: str, password: str, superuser: bool = False, createdb: bool = False) -> Tuple[bool, str]:
+    def create_user(name: str, password: str, superuser: bool = False, createdb: bool = False) -> tuple[bool, str]:
         if not re.match(r"^[a-zA-Z0-9_]+$", name):
             return False, "Invalid username"
 
@@ -189,7 +209,9 @@ class PostgresManager:
             else:
                 flags.append("NOCREATEDB")
             flag_str = " ".join(flags)
-            sql = f"ALTER ROLE {name} WITH PASSWORD '{password}' {flag_str};"
+
+            safe_password = PostgresManager._escape_literal(password)
+            sql = f"ALTER ROLE {name} WITH PASSWORD '{safe_password}' {flag_str};"
             success, msg = PostgresManager._run_psql(sql)
             if success:
                 return True, "User updated (already existed)"
@@ -203,29 +225,36 @@ class PostgresManager:
             flags.append("CREATEDB")
         flag_str = " ".join(flags)
 
-        sql = f"CREATE ROLE {name} WITH {flag_str} PASSWORD '{password}';"
+        safe_password = PostgresManager._escape_literal(password)
+        sql = f"CREATE ROLE {name} WITH {flag_str} PASSWORD '{safe_password}';"
         return PostgresManager._run_psql(sql)
 
     @staticmethod
-    def delete_user(name: str) -> Tuple[bool, str]:
+    def delete_user(name: str) -> tuple[bool, str]:
         if not re.match(r"^[a-zA-Z0-9_]+$", name):
             return False, "Invalid username"
         sql = f"DROP USER {name};"
         return PostgresManager._run_psql(sql)
 
     @staticmethod
-    def change_password(name: str, password: str) -> Tuple[bool, str]:
+    def change_password(name: str, password: str) -> tuple[bool, str]:
         if not re.match(r"^[a-zA-Z0-9_]+$", name):
             return False, "Invalid username"
-        sql = f"ALTER USER {name} WITH PASSWORD '{password}';"
+
+        safe_password = PostgresManager._escape_literal(password)
+        sql = f"ALTER USER {name} WITH PASSWORD '{safe_password}';"
         return PostgresManager._run_psql(sql)
 
     @staticmethod
-    def grant_access(db: str, user: str, schema: str = "public") -> Tuple[bool, str]:
+    def grant_access(db: str, user: str, schema: str = "public") -> tuple[bool, str]:
         # Grant all on database + schema usage
+        safe_db = PostgresManager._escape_identifier(db)
+        safe_user = PostgresManager._escape_identifier(user)
+        safe_schema = PostgresManager._escape_identifier(schema)
+
         sqls = [
-            f"GRANT ALL PRIVILEGES ON DATABASE {db} TO {user};",
-            f"GRANT ALL ON SCHEMA {schema} TO {user};",  # Note: Needs to be run IN the db
+            f"GRANT ALL PRIVILEGES ON DATABASE {safe_db} TO {safe_user};",
+            f"GRANT ALL ON SCHEMA {safe_schema} TO {safe_user};",  # Note: Needs to be run IN the db
         ]
 
         # Run DB grant globally
@@ -326,7 +355,7 @@ class PostgresManager:
     }
 
     @staticmethod
-    def list_extensions(db_name: str) -> List[Dict[str, str]]:
+    def list_extensions(db_name: str) -> list[dict[str, str]]:
         # List installed extensions
         sql = "SELECT extname, extversion FROM pg_extension;"
         success, output = PostgresManager._run_psql(sql, db=db_name, as_csv=True)
@@ -343,7 +372,7 @@ class PostgresManager:
         return exts
 
     @staticmethod
-    def list_available_extensions() -> List[Dict[str, Any]]:
+    def list_available_extensions() -> list[dict[str, Any]]:
         """List all extensions available to be installed (from pg_available_extensions)."""
         sql = "SELECT name, default_version, comment FROM pg_available_extensions ORDER BY name;"
         success, output = PostgresManager._run_psql(sql, as_csv=True)
@@ -370,7 +399,7 @@ class PostgresManager:
         return exts
 
     @staticmethod
-    def get_extension_info(ext_name: str) -> Dict[str, Any]:
+    def get_extension_info(ext_name: str) -> dict[str, Any]:
         """Get detailed info about an extension including installation instructions."""
         pg_version = PostgresManager.get_version()
         major_ver = pg_version.split(".")[0] if pg_version else "14"
@@ -408,7 +437,7 @@ class PostgresManager:
         return result
 
     @staticmethod
-    def get_popular_extensions() -> List[Dict[str, Any]]:
+    def get_popular_extensions() -> list[dict[str, Any]]:
         """Get list of popular extensions with availability status."""
         pg_version = PostgresManager.get_version()
         major_ver = pg_version.split(".")[0] if pg_version else "14"
@@ -438,7 +467,7 @@ class PostgresManager:
         return sorted(results, key=lambda x: (not x["available"], x["category"], x["name"]))
 
     @staticmethod
-    def install_extension_package(ext_name: str) -> Tuple[bool, str]:
+    def install_extension_package(ext_name: str) -> tuple[bool, str]:
         """Install the system package required for an extension."""
         pg_version = PostgresManager.get_version()
         major_ver = pg_version.split(".")[0] if pg_version else "14"
@@ -465,19 +494,20 @@ class PostgresManager:
         return True, f"Package {package} installed successfully. PostgreSQL restarted."
 
     @staticmethod
-    def manage_extension(db_name: str, ext_name: str, action: str) -> Tuple[bool, str]:
+    def manage_extension(db_name: str, ext_name: str, action: str) -> tuple[bool, str]:
         # action: create or drop
+        safe_ext = PostgresManager._escape_identifier(ext_name)
         sql = (
-            f"{action.upper()} EXTENSION IF NOT EXISTS {ext_name}"
+            f"{action.upper()} EXTENSION IF NOT EXISTS {safe_ext}"
             if action == "create"
-            else f"DROP EXTENSION IF EXISTS {ext_name}"
+            else f"DROP EXTENSION IF EXISTS {safe_ext}"
         )
         return PostgresManager._run_psql(sql, db=db_name)
 
     # --- Security & Remote Access ---
 
     @staticmethod
-    def toggle_remote_access(enable: bool) -> Tuple[bool, str]:
+    def toggle_remote_access(enable: bool) -> tuple[bool, str]:
         # 1. Find config files
         s, data_dir = PostgresManager._run_psql("SHOW data_directory;")
         if not s:
@@ -505,7 +535,7 @@ class PostgresManager:
 
         # 2. Update postgresql.conf (listen_addresses)
         try:
-            with open(pg_conf, "r") as f:
+            with open(pg_conf) as f:
                 lines = f.readlines()
 
             new_lines = []
@@ -529,7 +559,7 @@ class PostgresManager:
 
         # 3. Update pg_hba.conf (host all all 0.0.0.0/0 md5)
         try:
-            with open(pg_hba, "r") as f:
+            with open(pg_hba) as f:
                 lines = f.readlines()
 
             # Remove existing s-panel managed lines
@@ -566,7 +596,7 @@ class PostgresManager:
     # --- Maintenance ---
 
     @staticmethod
-    def vacuum_database(db_name: str) -> Tuple[bool, str]:
+    def vacuum_database(db_name: str) -> tuple[bool, str]:
         """Run VACUUM ANALYZE on a specific database."""
         if not re.match(r"^[a-zA-Z0-9_]+$", db_name):
             return False, "Invalid database name"
@@ -574,7 +604,7 @@ class PostgresManager:
         return PostgresManager._run_psql(sql, db=db_name)
 
     @staticmethod
-    def vacuum_all() -> Tuple[bool, str]:
+    def vacuum_all() -> tuple[bool, str]:
         """Run vacuumdb on all databases."""
         cmd = ["sudo", "-u", "postgres", "vacuumdb", "--all", "--analyze"]
         return PostgresManager._run_command(cmd)
@@ -582,7 +612,7 @@ class PostgresManager:
     # --- Backup Operations ---
 
     @staticmethod
-    def backup_database(db_name: str, format: str = "plain") -> Tuple[bool, str]:
+    def backup_database(db_name: str, format: str = "plain") -> tuple[bool, str]:
         """Create a backup of a specific database using pg_dump."""
         if not re.match(r"^[a-zA-Z0-9_]+$", db_name):
             return False, "Invalid database name"
@@ -608,7 +638,7 @@ class PostgresManager:
         return False, msg
 
     @staticmethod
-    def backup_all(format: str = "plain") -> Tuple[bool, str]:
+    def backup_all(format: str = "plain") -> tuple[bool, str]:
         """Create a full backup of all databases using pg_dumpall."""
         import datetime
 
@@ -627,7 +657,7 @@ class PostgresManager:
         return False, msg
 
     @staticmethod
-    def list_backups() -> List[Dict[str, Any]]:
+    def list_backups() -> list[dict[str, Any]]:
         """List available backup files."""
         backup_dir = "/var/backups/postgresql"
         if not os.path.isdir(backup_dir):
@@ -648,7 +678,7 @@ class PostgresManager:
     # --- Update Check ---
 
     @staticmethod
-    def check_update() -> Dict[str, Any]:
+    def check_update() -> dict[str, Any]:
         """Check if a PostgreSQL update is available via apt."""
         result = {"current_version": PostgresManager.get_version(), "available_version": None}
 
