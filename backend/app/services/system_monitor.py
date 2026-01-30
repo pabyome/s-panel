@@ -44,6 +44,28 @@ class SystemMonitor:
             return {"total": 0, "used": 0, "free": 0, "percent": 0}
 
     @staticmethod
+    def get_disk_io_stats() -> Dict[str, Any]:
+        try:
+            io = psutil.disk_io_counters()
+            return {
+                "read_bytes": io.read_bytes,
+                "write_bytes": io.write_bytes,
+            }
+        except Exception:
+            return {"read_bytes": 0, "write_bytes": 0}
+
+    @staticmethod
+    def get_net_io_stats() -> Dict[str, Any]:
+        try:
+            io = psutil.net_io_counters()
+            return {
+                "bytes_sent": io.bytes_sent,
+                "bytes_recv": io.bytes_recv,
+            }
+        except Exception:
+            return {"bytes_sent": 0, "bytes_recv": 0}
+
+    @staticmethod
     def get_load_average() -> Dict[str, Any]:
         try:
             # os.getloadavg() is available on Unix
@@ -213,6 +235,8 @@ class SystemMonitor:
             "cpu": cls.get_cpu_stats(),
             "memory": cls.get_memory_stats(),
             "disk": cls.get_disk_stats(),
+            "disk_io": cls.get_disk_io_stats(),
+            "net_io": cls.get_net_io_stats(),
             "load_avg": cls.get_load_average(),
             "uptime": cls.get_uptime(),
             "os_info": cls.get_os_info(),
