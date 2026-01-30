@@ -20,7 +20,7 @@
     </div>
 
     <!-- Stats Grid -->
-    <div class="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-3">
+    <div class="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <!-- CPU Config -->
         <div class="bg-white overflow-hidden shadow rounded-2xl ring-1 ring-gray-900/5">
             <div class="p-5">
@@ -101,6 +101,62 @@
                 </div>
             </div>
         </div>
+
+        <!-- Network I/O -->
+        <div class="bg-white overflow-hidden shadow rounded-2xl ring-1 ring-gray-900/5">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <svg class="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                           <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m-15.686 0A8.959 8.959 0 013 12c0-.778.099-1.533.284-2.253m0 0A11.959 11.959 0 013 12a11.959 11.959 0 01-1.882-6M21 12a11.959 11.959 0 01-2.118 6" />
+                        </svg>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Network I/O</dt>
+                            <dd class="flex flex-col">
+                                <div class="flex justify-between items-center mt-1">
+                                    <span class="text-xs text-gray-500">Down</span>
+                                    <span class="text-sm font-semibold text-gray-900">{{ formatBytes(netSpeed.recv) }}/s</span>
+                                </div>
+                                <div class="flex justify-between items-center mt-1">
+                                    <span class="text-xs text-gray-500">Up</span>
+                                    <span class="text-sm font-semibold text-gray-900">{{ formatBytes(netSpeed.sent) }}/s</span>
+                                </div>
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Disk I/O -->
+        <div class="bg-white overflow-hidden shadow rounded-2xl ring-1 ring-gray-900/5">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <svg class="h-6 w-6 text-orange-600" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                           <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" />
+                        </svg>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Disk I/O</dt>
+                             <dd class="flex flex-col">
+                                <div class="flex justify-between items-center mt-1">
+                                    <span class="text-xs text-gray-500">Read</span>
+                                    <span class="text-sm font-semibold text-gray-900">{{ formatBytes(diskSpeed.read) }}/s</span>
+                                </div>
+                                <div class="flex justify-between items-center mt-1">
+                                    <span class="text-xs text-gray-500">Write</span>
+                                    <span class="text-sm font-semibold text-gray-900">{{ formatBytes(diskSpeed.write) }}/s</span>
+                                </div>
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Process List -->
@@ -142,6 +198,12 @@ const connected = ref(false)
 let ws = null
 let procInterval = null
 
+const netSpeed = ref({ sent: 0, recv: 0 })
+const diskSpeed = ref({ read: 0, write: 0 })
+let lastNetIo = null
+let lastDiskIo = null
+let lastTime = null
+
 const formatBytes = (bytes, decimals = 2) => {
     if (!+bytes) return '0 Bytes'
     const k = 1024
@@ -160,11 +222,50 @@ const connectWebSocket = () => {
     ws.onopen = () => {
         connected.value = true
         console.log('Monitor WebSocket connected')
+        // Reset speed tracking
+        lastNetIo = null
+        lastDiskIo = null
+        lastTime = null
     }
 
     ws.onmessage = (event) => {
         const data = JSON.parse(event.data)
         stats.value = data
+
+        const now = Date.now()
+
+        if (lastTime && data.net_io && data.disk_io && lastNetIo && lastDiskIo) {
+            const timeDiff = (now - lastTime) / 1000 // seconds
+
+            if (timeDiff > 0) {
+                // Network Speed
+                const sentDiff = data.net_io.bytes_sent - lastNetIo.bytes_sent
+                const recvDiff = data.net_io.bytes_recv - lastNetIo.bytes_recv
+
+                // Handle potential resets or negatives
+                if (sentDiff >= 0 && recvDiff >= 0) {
+                    netSpeed.value = {
+                        sent: sentDiff / timeDiff,
+                        recv: recvDiff / timeDiff
+                    }
+                }
+
+                // Disk Speed
+                const readDiff = data.disk_io.read_bytes - lastDiskIo.read_bytes
+                const writeDiff = data.disk_io.write_bytes - lastDiskIo.write_bytes
+
+                if (readDiff >= 0 && writeDiff >= 0) {
+                     diskSpeed.value = {
+                        read: readDiff / timeDiff,
+                        write: writeDiff / timeDiff
+                    }
+                }
+            }
+        }
+
+        lastNetIo = data.net_io
+        lastDiskIo = data.disk_io
+        lastTime = now
     }
 
     ws.onclose = () => {
