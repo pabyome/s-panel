@@ -26,6 +26,46 @@ LOG_DIRECTORIES = {
     "spanel": "/var/log",  # assuming spanel logs here, or we can add app logs
 }
 
+# Explicitly allowed files
+EXPLICIT_FILES = [
+    ("system/syslog", "/var/log/syslog"),
+    ("system/auth.log", "/var/log/auth.log"),
+    ("spanel/app.log", "app.log"),  # relative to run dir?
+]
+
+
+def validate_log_path(path: str) -> str:
+    """
+    Validates that the given path is a safe log file.
+    Returns the absolute path if valid, raises HTTPException otherwise.
+    """
+    if not path:
+        raise HTTPException(status_code=400, detail="Path is required")
+
+    # Resolve path to absolute, following symlinks
+    real_path = os.path.realpath(path)
+
+    # 1. Check Explicit Files
+    for _, explicit_path in EXPLICIT_FILES:
+        # Resolve explicit path too, in case it's relative like "app.log"
+        if os.path.realpath(explicit_path) == real_path:
+            return real_path
+
+    # 2. Check Allowed Directories
+    for _, dir_path in LOG_DIRECTORIES.items():
+        real_dir = os.path.realpath(dir_path)
+        # Check if path starts with directory (and ensure it's a subpath)
+        try:
+            if os.path.commonpath([real_path, real_dir]) == real_dir:
+                # It is inside the directory.
+                # Enforce .log extension for directory-based files
+                if real_path.endswith(".log"):
+                    return real_path
+        except ValueError:
+            continue
+
+    raise HTTPException(status_code=403, detail="Access denied to this file")
+
 
 @router.get("/files", response_model=List[LogFile])
 def list_log_files(current_user: CurrentUser):
@@ -53,14 +93,7 @@ def list_log_files(current_user: CurrentUser):
     scan_dir("nginx", LOG_DIRECTORIES["nginx"])
     # scan_dir("system", LOG_DIRECTORIES["system"]) # Too noisy, maybe just specific ones?
 
-    # Add explicit important files
-    explicit_files = [
-        ("system/syslog", "/var/log/syslog"),
-        ("system/auth.log", "/var/log/auth.log"),
-        ("spanel/app.log", "app.log"),  # relative to run dir?
-    ]
-
-    for name, path in explicit_files:
+    for name, path in EXPLICIT_FILES:
         if os.path.exists(path):
             try:
                 stat = os.stat(path)
@@ -73,13 +106,11 @@ def list_log_files(current_user: CurrentUser):
 
 @router.get("/content", response_model=LogContent)
 def get_log_content(path: str, lines: int = Query(100, le=1000), current_user: CurrentUser = None):
-    # Security: Validate path is against allowed
-    # We do loose check: must be absolute and exist, and be in our known list logic?
-    # Or just require it matches one of the known paths from list_log_files?
-    # For now, simplistic check: must end with .log or be in explicit list
-
     if not os.path.exists(path):
         raise HTTPException(status_code=404, detail="File not found")
+
+    # Security: Validate path is against allowed
+    validate_log_path(path)
 
     # Read last N lines
     try:
@@ -102,19 +133,8 @@ def clear_log_file(data: dict, current_user: CurrentUser):  # Expect {"path": ".
     if not os.path.exists(path):
         raise HTTPException(status_code=404, detail="File not found")
 
-    # Security check - only allow log files
-    if not path.endswith(".log"):
-        raise HTTPException(status_code=400, detail="Only .log files can be cleared")
-
-    # Check if file is in allowed directories
-    allowed = False
-    for category, dir_path in LOG_DIRECTORIES.items():
-        if path.startswith(dir_path):
-            allowed = True
-            break
-
-    if not allowed and not path.startswith("/var/log/"):
-        raise HTTPException(status_code=403, detail="Path not in allowed log directories")
+    # Security check
+    validate_log_path(path)
 
     try:
         with open(path, "w") as f:
@@ -132,8 +152,8 @@ def clear_file(data: dict, current_user: CurrentUser):  # path
     if not path or not os.path.exists(path):
         raise HTTPException(status_code=404, detail="File not found")
 
-    # Simple security check (same as read)
-    # TODO: Refactor shared security check
+    # Security check
+    validate_log_path(path)
 
     try:
         # Truncate
