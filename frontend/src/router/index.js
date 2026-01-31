@@ -32,6 +32,7 @@ const routes = [
       { path: 'logs', name: 'logs', component: () => import('../views/Logs.vue') },
       { path: 'databases', name: 'databases', component: () => import('../views/Databases.vue') },
       { path: 'monitor', name: 'monitor', component: () => import('../views/Monitor.vue') },
+      { path: 'files', name: 'files', component: () => import('../views/FileManager.vue') },
     ]
   },
   {
