@@ -75,7 +75,8 @@ import {
   DocumentTextIcon,
   TableCellsIcon,
   ChartBarIcon,
-  UsersIcon
+  UsersIcon,
+  FolderIcon
 } from '@heroicons/vue/24/outline'
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
@@ -107,6 +108,7 @@ const navigation = computed(() => [
   { name: 'Supervisor', href: '/supervisor', icon: CpuChipIcon, current: route.path.startsWith('/supervisor') },
   { name: 'Deployments', href: '/deployments', icon: CloudArrowUpIcon, current: route.path.startsWith('/deployments') },
   { name: 'Redis', href: '/redis', icon: CircleStackIcon, current: route.path.startsWith('/redis') },
+  { name: 'File Manager', href: '/files', icon: FolderIcon, current: route.path.startsWith('/files') },
   { name: 'Databases', href: '/databases', icon: TableCellsIcon, current: route.path.startsWith('/databases') },
   { name: 'Cron Jobs', href: '/cron', icon: ClockIcon, current: route.path.startsWith('/cron') },
   { name: 'Backups', href: '/backups', icon: ArchiveBoxIcon, current: route.path.startsWith('/backups') },
