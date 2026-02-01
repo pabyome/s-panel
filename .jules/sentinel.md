@@ -1,0 +1,4 @@
+## 2026-02-01 - Critical Path Traversal in Logs API
+**Vulnerability:** The `/api/v1/logs/content` and `/api/v1/logs/clear_file` endpoints accepted a raw file path argument without proper validation, allowing authenticated users to read arbitrary files (like `config.py`) or truncate any file writable by the process.
+**Learning:** `subprocess.run` prevents shell injection but does not prevent path traversal if the command argument itself is a file path. Checking `startswith("/var/log/")` is insufficient without resolving symlinks and `..` components first.
+**Prevention:** Always use `os.path.realpath()` to resolve paths before validation. Use a strict whitelist of allowed directories and check membership using `os.path.commonpath()` to prevent traversal. Enforce file extensions (e.g., `.log`) where possible.

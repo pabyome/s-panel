@@ -26,6 +26,56 @@ LOG_DIRECTORIES = {
     "spanel": "/var/log",  # assuming spanel logs here, or we can add app logs
 }
 
+EXPLICIT_FILES = [
+    ("system/syslog", "/var/log/syslog"),
+    ("system/auth.log", "/var/log/auth.log"),
+    ("spanel/app.log", "app.log"),  # relative to run dir?
+]
+
+
+def validate_log_path(path: str) -> str:
+    """
+    Validates that the path is safe to access.
+    Returns the absolute resolved path or raises HTTPException.
+    """
+    if not path:
+        raise HTTPException(status_code=400, detail="Path is required")
+
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="File not found")
+
+    try:
+        # Resolve symlinks and ..
+        real_path = os.path.realpath(path)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid path")
+
+    # Check explicit files
+    for _, explicit_path in EXPLICIT_FILES:
+        if os.path.exists(explicit_path):
+            if os.path.realpath(explicit_path) == real_path:
+                return real_path
+
+    # Check directories
+    is_allowed_dir = False
+    for _, dir_path in LOG_DIRECTORIES.items():
+        if not os.path.exists(dir_path):
+            continue
+        real_dir = os.path.realpath(dir_path)
+        # Use commonpath to ensure it's truly inside
+        if os.path.commonpath([real_dir, real_path]) == real_dir:
+            is_allowed_dir = True
+            break
+
+    if not is_allowed_dir:
+        raise HTTPException(status_code=403, detail="Access denied: Path not allowed")
+
+    # Enforce extension for directory-based files
+    if not real_path.endswith(".log"):
+         raise HTTPException(status_code=403, detail="Access denied: Only .log files allowed")
+
+    return real_path
+
 
 @router.get("/files", response_model=List[LogFile])
 def list_log_files(current_user: CurrentUser):
@@ -54,13 +104,7 @@ def list_log_files(current_user: CurrentUser):
     # scan_dir("system", LOG_DIRECTORIES["system"]) # Too noisy, maybe just specific ones?
 
     # Add explicit important files
-    explicit_files = [
-        ("system/syslog", "/var/log/syslog"),
-        ("system/auth.log", "/var/log/auth.log"),
-        ("spanel/app.log", "app.log"),  # relative to run dir?
-    ]
-
-    for name, path in explicit_files:
+    for name, path in EXPLICIT_FILES:
         if os.path.exists(path):
             try:
                 stat = os.stat(path)
@@ -74,19 +118,14 @@ def list_log_files(current_user: CurrentUser):
 @router.get("/content", response_model=LogContent)
 def get_log_content(path: str, lines: int = Query(100, le=1000), current_user: CurrentUser = None):
     # Security: Validate path is against allowed
-    # We do loose check: must be absolute and exist, and be in our known list logic?
-    # Or just require it matches one of the known paths from list_log_files?
-    # For now, simplistic check: must end with .log or be in explicit list
-
-    if not os.path.exists(path):
-        raise HTTPException(status_code=404, detail="File not found")
+    safe_path = validate_log_path(path)
 
     # Read last N lines
     try:
         # Using tail command is efficient
         import subprocess
 
-        result = subprocess.run(["tail", "-n", str(lines), path], capture_output=True, text=True)
+        result = subprocess.run(["tail", "-n", str(lines), safe_path], capture_output=True, text=True)
         return LogContent(content=result.stdout, lines=lines)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -96,28 +135,10 @@ def get_log_content(path: str, lines: int = Query(100, le=1000), current_user: C
 def clear_log_file(data: dict, current_user: CurrentUser):  # Expect {"path": "..."}
     """Clear (truncate) a log file"""
     path = data.get("path")
-    if not path:
-        raise HTTPException(status_code=400, detail="Path is required")
-
-    if not os.path.exists(path):
-        raise HTTPException(status_code=404, detail="File not found")
-
-    # Security check - only allow log files
-    if not path.endswith(".log"):
-        raise HTTPException(status_code=400, detail="Only .log files can be cleared")
-
-    # Check if file is in allowed directories
-    allowed = False
-    for category, dir_path in LOG_DIRECTORIES.items():
-        if path.startswith(dir_path):
-            allowed = True
-            break
-
-    if not allowed and not path.startswith("/var/log/"):
-        raise HTTPException(status_code=403, detail="Path not in allowed log directories")
+    safe_path = validate_log_path(path)
 
     try:
-        with open(path, "w") as f:
+        with open(safe_path, "w") as f:
             f.truncate(0)
         return {"status": "cleared", "message": f"Log file {path} cleared"}
     except PermissionError:
@@ -129,15 +150,11 @@ def clear_log_file(data: dict, current_user: CurrentUser):  # Expect {"path": ".
 @router.post("/clear_file")
 def clear_file(data: dict, current_user: CurrentUser):  # path
     path = data.get("path")
-    if not path or not os.path.exists(path):
-        raise HTTPException(status_code=404, detail="File not found")
-
-    # Simple security check (same as read)
-    # TODO: Refactor shared security check
+    safe_path = validate_log_path(path)
 
     try:
         # Truncate
-        with open(path, "w") as f:
+        with open(safe_path, "w") as f:
             f.truncate(0)
         return {"status": "cleared"}
     except Exception as e:
