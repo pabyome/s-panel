@@ -106,3 +106,29 @@ def test_acl_endpoints(mock_redis, client):
     assert mock_instance.execute_command.call_count >= 1
     # Check the latest call args for structure
     # mock_instance.execute_command.assert_called_with("ACL", "SETUSER", "newuser", "on", ">secretpassword", "+@read", "~cache:*")
+
+@patch("app.services.redis_manager.RedisManager.check_connection")
+def test_connection_status(mock_check, client):
+    mock_check.return_value = {"status": "connected"}
+
+    response = client.get("/api/v1/redis/connection-status")
+    assert response.status_code == 200
+    assert response.json()["status"] == "connected"
+
+@patch("app.services.redis_manager.RedisManager.update_credentials")
+@patch("app.services.redis_manager.RedisManager.check_connection")
+def test_update_credentials(mock_check, mock_update, client):
+    mock_update.return_value = True
+    mock_check.return_value = {"status": "connected"}
+
+    response = client.post("/api/v1/redis/credentials", json={
+        "host": "localhost",
+        "port": 6379,
+        "password": "newpassword",
+        "username": "default"
+    })
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "success"
+    mock_update.assert_called_with("localhost", 6379, "newpassword", "default")
+

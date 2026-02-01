@@ -3,6 +3,7 @@ import os
 import re
 import subprocess
 from typing import Dict, Any, List, Optional, Tuple
+from app.core.config import settings
 
 
 class RedisManager:
@@ -66,20 +67,58 @@ class RedisManager:
         return False, f"Failed to {action} Redis service"
 
     @classmethod
-    def get_client(cls, host="localhost", port=6379, password=None, db=0) -> redis.Redis:
+    def get_client(
+        cls,
+        host: Optional[str] = None,
+        port: Optional[int] = None,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
+        db: Optional[int] = None,
+    ) -> redis.Redis:
+        # Resolve config defaults
+        host = host or settings.REDIS_HOST
+        port = port or settings.REDIS_PORT
+        username = username or settings.REDIS_USER
+        password = password or settings.REDIS_PASS
+        if db is None:
+            db = settings.REDIS_DB
+
+        # Auto-discovery fallback for password if not provided
+        if not password:
+             discovered = cls.auto_discover_credentials()
+             if discovered.get("password"):
+                 password = discovered["password"]
+                 # If we discovered a password, and no user is set, we might default to 'default'
+                 # But 'default' is implied by Redis if no user is passed, so we can leave username as None or "default"
+                 if not username and discovered.get("username"):
+                     username = discovered["username"]
+
         # Check if we have a client and if it matches the requested DB
         if cls._client:
             connection_kwargs = cls._client.connection_pool.connection_kwargs
-            if connection_kwargs.get('db') == db:
-                return cls._client
-            else:
-                 # Close old? Or just replace. Redis-py connection pool handles caching.
-                 # Actually, we should close it or manage a pool, but for this simple manager:
+            # We could check more params, but typically DB is the main switcher
+            current_db = connection_kwargs.get('db')
+            current_host = connection_kwargs.get('host')
+            current_port = connection_kwargs.get('port')
+
+            # Simple check if connection params changed (re-connection needed)
+            if (current_db != db or
+                current_host != host or
+                current_port != port):
                  cls._client.close()
                  cls._client = None
+            else:
+                 return cls._client
 
         # Create new
-        cls._client = redis.Redis(host=host, port=port, password=password, db=db, decode_responses=True)
+        cls._client = redis.Redis(
+            host=host,
+            port=port,
+            username=username,
+            password=password,
+            db=db,
+            decode_responses=True
+        )
         return cls._client
 
     @classmethod
@@ -142,6 +181,28 @@ class RedisManager:
             return {"error": f"Failed to parse config: {str(e)}"}
 
         return config
+
+    @classmethod
+    def auto_discover_credentials(cls) -> Dict[str, str]:
+        """Attempt to read credentials from redis.conf"""
+        try:
+            config = cls.read_config()
+            if "error" in config:
+                return {}
+
+            creds = {}
+            if "requirepass" in config:
+                creds["password"] = config["requirepass"]
+                # If requirepass is set, it's usually for the default user or global
+                creds["username"] = "default"
+
+            # Parsing ACL "user" lines is complex and they might be in a separate aclfile
+            # but we can try basic 'user default ... >password' if it exists in main conf
+            # Realistically, most simple setups just use requirepass.
+
+            return creds
+        except:
+            return {}
 
     @classmethod
     def save_config(cls, updates: Dict[str, str]) -> bool:
@@ -209,6 +270,86 @@ class RedisManager:
             return client.info()
         except redis.ConnectionError:
             return {"error": "Could not connect to Redis"}
+        except redis.AuthenticationError:
+            return {"error": "Authentication failed"}
+
+    @classmethod
+    def check_connection(cls) -> Dict[str, Any]:
+        """Explicit check for connection status."""
+        client = cls.get_client()
+        try:
+            client.ping()
+            return {"status": "connected"}
+        except redis.AuthenticationError:
+            return {"status": "auth_required", "detail": "Authentication failed"}
+        except redis.ConnectionError as e:
+            return {"status": "failed", "detail": str(e)}
+        except Exception as e:
+            return {"status": "failed", "detail": str(e)}
+
+    @classmethod
+    def update_credentials(cls, host: str, port: int, password: str, username: str = None) -> bool:
+        """Update .env file with new credentials"""
+        env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".env")
+
+        try:
+            # Read existing
+            lines = []
+            if os.path.exists(env_path):
+                with open(env_path, "r") as f:
+                    lines = f.readlines()
+
+            updates = {
+                "REDIS_HOST": host,
+                "REDIS_PORT": port,
+                "REDIS_PASS": password,
+            }
+            if username:
+                updates["REDIS_USER"] = username
+
+            new_lines = []
+            # Updated existing keys
+            updated_keys = set()
+
+            for line in lines:
+                key_match = re.match(r"^([A-Z_]+)=", line)
+                if key_match:
+                    key = key_match.group(1)
+                    if key in updates:
+                        # Replace
+                        val = updates[key]
+                        new_lines.append(f"{key}={val}\n")
+                        updated_keys.add(key)
+                        continue
+                new_lines.append(line)
+
+            # Append missing
+            if len(new_lines) > 0 and not new_lines[-1].endswith("\n"):
+                 new_lines.append("\n")
+
+            for key, val in updates.items():
+                if key not in updated_keys:
+                    new_lines.append(f"{key}={val}\n")
+
+            with open(env_path, "w") as f:
+                f.writelines(new_lines)
+
+            # Also update runtime settings if we can, or rely on reload.
+            # Ideally we reload settings. But simple variable update might work for immediate use.
+            settings.REDIS_HOST = str(host)
+            settings.REDIS_PORT = int(port)
+            settings.REDIS_PASS = str(password)
+            settings.REDIS_USER = str(username) if username else None
+
+            # Reset client to force reconnect with new creds
+            if cls._client:
+                cls._client.close()
+                cls._client = None
+
+            return True
+        except Exception as e:
+            print(f"Failed to update .env: {e}")
+            return False
 
     @classmethod
     def get_dbs_keys(cls) -> Dict[str, int]:
@@ -218,13 +359,13 @@ class RedisManager:
         return {k: v["keys"] for k, v in info.items() if k.startswith("db")}
 
     @classmethod
-    def scan_keys(cls, pattern="*", count=100, db=0) -> List[str]:
+    def scan_keys(cls, pattern="*", count=100, db: Optional[int] = None) -> List[str]:
         client = cls.get_client(db=db)
         # scan iterator
         return [k for k in client.scan_iter(match=pattern, count=count)]
 
     @classmethod
-    def get_key_details(cls, key: str, db=0) -> Dict[str, Any]:
+    def get_key_details(cls, key: str, db: Optional[int] = None) -> Dict[str, Any]:
         client = cls.get_client(db=db)
         type_ = client.type(key)
         ttl = client.ttl(key)
@@ -243,12 +384,12 @@ class RedisManager:
         return {"key": key, "type": type_, "ttl": ttl, "value": val}
 
     @classmethod
-    def delete_key(cls, key: str, db=0) -> bool:
+    def delete_key(cls, key: str, db: Optional[int] = None) -> bool:
         client = cls.get_client(db=db)
         return client.delete(key) > 0
 
     @classmethod
-    def flush_db(cls, db=0) -> bool:
+    def flush_db(cls, db: Optional[int] = None) -> bool:
         client = cls.get_client(db=db)
         return client.flushdb()
 

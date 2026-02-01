@@ -12,6 +12,13 @@ class Settings(BaseSettings):
     # CORS
     BACKEND_CORS_ORIGINS: List[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
 
+    # Redis
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6379
+    REDIS_USER: str | None = None
+    REDIS_PASS: str | None = None
+    REDIS_DB: int = 0
+
     model_config = SettingsConfigDict(env_file=".env")
 
 settings = Settings()

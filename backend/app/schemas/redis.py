@@ -53,3 +53,10 @@ class RedisACLUser(BaseModel):
     commands: str
     keys: str
     channels: str
+
+
+class RedisCredentialsUpdate(BaseModel):
+    host: str = "127.0.0.1"
+    port: int = 6379
+    username: Optional[str] = None
+    password: Optional[str] = None

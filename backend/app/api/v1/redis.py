@@ -1,8 +1,8 @@
 from fastapi import APIRouter, HTTPException, Query
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from app.api.deps import CurrentUser
 from app.services.redis_manager import RedisManager
-from app.schemas.redis import RedisConfigUpdate, RedisKeyDetail, RedisUser
+from app.schemas.redis import RedisConfigUpdate, RedisKeyDetail, RedisUser, RedisCredentialsUpdate
 
 router = APIRouter()
 
@@ -11,6 +11,26 @@ router = APIRouter()
 def get_redis_status(current_user: CurrentUser):
     """Check Redis service status"""
     return RedisManager.get_service_status()
+
+
+@router.get("/connection-status")
+def get_connection_status(current_user: CurrentUser):
+    """Check explicit connection to Redis (ping)"""
+    return RedisManager.check_connection()
+
+
+@router.post("/credentials")
+def update_redis_credentials(creds: RedisCredentialsUpdate, current_user: CurrentUser):
+    """Update Redis connection credentials"""
+    # Try to connect first?
+    # Actually update_credentials just saves. We should verify preferably in manager or UI.
+    # The manager updates and reloads.
+    if RedisManager.update_credentials(creds.host, creds.port, creds.password, creds.username):
+        # Verification check
+        check = RedisManager.check_connection()
+        return {"status": "success", "connection": check}
+
+    raise HTTPException(status_code=500, detail="Failed to update credentials")
 
 
 @router.post("/service/{action}")
@@ -56,27 +76,27 @@ def get_info(current_user: CurrentUser):
 
 
 @router.get("/keys")
-def get_keys(current_user: CurrentUser, pattern: str = "*", count: int = 100, db: int = 0):
+def get_keys(current_user: CurrentUser, pattern: str = "*", count: int = 100, db: Optional[int] = None):
     # This just returns list of strings
     return {"keys": RedisManager.scan_keys(pattern, count, db=db)}
 
 
 @router.get("/keys/{key:path}")  # :path allows slashes in key name
-def get_key_detail(key: str, current_user: CurrentUser, db: int = 0):
+def get_key_detail(key: str, current_user: CurrentUser, db: Optional[int] = None):
     # Decode double encoding if necessary?
     # Usually wrapper handles it.
     return RedisManager.get_key_details(key, db=db)
 
 
 @router.delete("/keys/{key:path}")
-def delete_key(key: str, current_user: CurrentUser, db: int = 0):
+def delete_key(key: str, current_user: CurrentUser, db: Optional[int] = None):
     if RedisManager.delete_key(key, db=db):
         return {"status": "deleted"}
     raise HTTPException(status_code=404, detail="Key not found or could not be deleted")
 
 
 @router.post("/flush")
-def flush_db(current_user: CurrentUser, db: int = 0):
+def flush_db(current_user: CurrentUser, db: Optional[int] = None):
     if RedisManager.flush_db(db=db):
         return {"status": "flushed"}
     raise HTTPException(status_code=500, detail="Failed to flush DB")
