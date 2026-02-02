@@ -74,9 +74,29 @@
             <span class="h-3 w-3 rounded-full bg-yellow-500"></span>
             <span class="h-3 w-3 rounded-full bg-green-500"></span>
           </div>
-          <span class="text-sm text-gray-400">stdout</span>
+          <span class="text-sm text-gray-400">{{ logChannel === 'stdout' ? 'Standard Output' : 'Error Log' }}</span>
         </div>
         <div class="flex items-center gap-2">
+             <div class="flex rounded-md bg-gray-800 p-0.5 mr-2">
+                <button
+                  @click="logChannel = 'stdout'"
+                  :class="[
+                    'px-3 py-1 text-xs font-medium rounded transition-colors',
+                    logChannel === 'stdout' ? 'bg-gray-700 text-white shadow-sm' : 'text-gray-400 hover:text-gray-300'
+                  ]"
+                >
+                  Stdout
+                </button>
+                <button
+                  @click="logChannel = 'stderr'"
+                  :class="[
+                    'px-3 py-1 text-xs font-medium rounded transition-colors',
+                    logChannel === 'stderr' ? 'bg-red-900/50 text-red-200 shadow-sm' : 'text-gray-400 hover:text-gray-300'
+                  ]"
+                >
+                  Stderr
+                </button>
+             </div>
           <span class="text-xs text-gray-500">Auto-refresh: 3s</span>
           <button @click="confirmClearLogs" :disabled="isClearingLogs" class="rounded-lg p-1.5 text-gray-400 hover:bg-gray-800 hover:text-red-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" title="Clear Logs">
              <svg v-if="isClearingLogs" class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
@@ -201,6 +221,7 @@ const isClearingLogs = ref(false)
 const isSavingConfig = ref(false)
 const isClearLogsModalOpen = ref(false)
 const isSaveConfigModalOpen = ref(false)
+const logChannel = ref('stdout')
 
 const fetchProcessInfo = async () => {
     try {
@@ -217,12 +238,16 @@ const fetchProcessInfo = async () => {
 
 const fetchLogs = async () => {
     try {
-        const response = await axios.get(`/api/v1/supervisor/processes/${route.params.name}/logs?length=10000`)
+        const response = await axios.get(`/api/v1/supervisor/processes/${route.params.name}/logs?length=10000&channel=${logChannel.value}`)
         logs.value = response.data.log
     } catch (e) {
         console.error("Failed to fetch logs")
     }
 }
+
+watch(logChannel, () => {
+    fetchLogs()
+})
 
 const confirmClearLogs = () => {
     isClearLogsModalOpen.value = true
