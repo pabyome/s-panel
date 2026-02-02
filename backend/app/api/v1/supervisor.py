@@ -59,8 +59,8 @@ def restart_process(name: str, current_user: CurrentUser):
 
 
 @router.get("/processes/{name}/logs")
-def get_logs(current_user: CurrentUser, name: str, offset: int = 0, length: int = 2000):
-    log = SupervisorManager.read_log(name, offset, length)
+def get_logs(current_user: CurrentUser, name: str, offset: int = 0, length: int = 2000, channel: str = "stdout"):
+    log = SupervisorManager.read_log(name, offset, length, channel=channel)
     return {"log": log, "offset": offset + len(log)}
 
 

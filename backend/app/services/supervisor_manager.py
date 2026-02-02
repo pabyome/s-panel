@@ -108,17 +108,21 @@ class SupervisorManager:
             return False, str(e)
 
     @classmethod
-    def read_log(cls, name: str, offset: int = 0, length: int = 2000) -> str:
+    def read_log(cls, name: str, offset: int = 0, length: int = 2000, channel: str = "stdout") -> str:
         try:
             with cls._get_rpc() as supervisor:
-                # readProcessStdoutLog(name, offset, length)
+                if channel == "stderr":
+                    return supervisor.supervisor.readProcessStderrLog(name, offset, length)
                 return supervisor.supervisor.readProcessStdoutLog(name, offset, length)
         except Exception as e:
             # Fallback: Try reading file directly if XML-RPC fails (e.g. invalid XML chars)
             try:
                 with cls._get_rpc() as supervisor:
                     info = supervisor.supervisor.getProcessInfo(name)
+
                     logfile = info.get("stdout_logfile")
+                    if channel == "stderr":
+                        logfile = info.get("stderr_logfile")
 
                     if logfile and os.path.exists(logfile):
                         # Respect offset/length semantics roughly
