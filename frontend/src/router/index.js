@@ -2,15 +2,6 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import Layout from '../layout/Layout.vue'
 import Dashboard from '../views/Dashboard.vue'
-import Websites from '../views/Websites.vue'
-import Security from '../views/Security.vue'
-import Supervisor from '../views/Supervisor.vue'
-import SupervisorDetail from '../views/SupervisorDetail.vue'
-import Deployments from '../views/Deployments.vue'
-import Redis from '../views/Redis.vue'
-import CronJobs from '../views/CronJobs.vue'
-import Users from '../views/Users.vue'
-import Login from '../views/Login.vue'
 
 const routes = [
   {
@@ -19,14 +10,14 @@ const routes = [
     meta: { requiresAuth: true },
     children: [
       { path: '', name: 'dashboard', component: Dashboard },
-      { path: 'websites', name: 'websites', component: Websites },
-      { path: 'security', name: 'security', component: Security },
-      { path: 'supervisor', name: 'supervisor', component: Supervisor },
-      { path: 'supervisor/:name', name: 'supervisor-detail', component: SupervisorDetail },
-      { path: 'deployments', name: 'deployments', component: Deployments },
-      { path: 'redis', name: 'redis', component: Redis },
-      { path: 'cron', name: 'cron', component: CronJobs },
-      { path: 'users', name: 'users', component: Users },
+      { path: 'websites', name: 'websites', component: () => import('../views/Websites.vue') },
+      { path: 'security', name: 'security', component: () => import('../views/Security.vue') },
+      { path: 'supervisor', name: 'supervisor', component: () => import('../views/Supervisor.vue') },
+      { path: 'supervisor/:name', name: 'supervisor-detail', component: () => import('../views/SupervisorDetail.vue') },
+      { path: 'deployments', name: 'deployments', component: () => import('../views/Deployments.vue') },
+      { path: 'redis', name: 'redis', component: () => import('../views/Redis.vue') },
+      { path: 'cron', name: 'cron', component: () => import('../views/CronJobs.vue') },
+      { path: 'users', name: 'users', component: () => import('../views/Users.vue') },
       { path: 'backups', name: 'backups', component: () => import('../views/Backups.vue') },
       { path: 'settings', name: 'settings', component: () => import('../views/Settings.vue') },
       { path: 'logs', name: 'logs', component: () => import('../views/Logs.vue') },
@@ -38,7 +29,7 @@ const routes = [
   {
     path: '/login',
     name: 'login',
-    component: Login
+    component: () => import('../views/Login.vue')
   }
 ]
 
