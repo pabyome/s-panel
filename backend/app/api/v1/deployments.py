@@ -279,6 +279,7 @@ async def handle_deploy_background(deployment_id: uuid.UUID):
             pass
 
         try:
+            loop = asyncio.get_running_loop()
 
             async def update_logs(current_logs):
                 # Update database
@@ -295,23 +296,19 @@ async def handle_deploy_background(deployment_id: uuid.UUID):
             # Wrap sync callback for GitService
             def sync_update_logs(current_logs):
                 try:
-                    loop = asyncio.get_event_loop()
-                    if loop.is_running():
-                        asyncio.create_task(update_logs(current_logs))
-                    else:
-                        loop.run_until_complete(update_logs(current_logs))
-                except:
-                    # Fallback: just update DB
-                    deployment.last_logs = current_logs
-                    session.add(deployment)
-                    session.commit()
+                    asyncio.run_coroutine_threadsafe(update_logs(current_logs), loop)
+                except Exception:
+                    pass
 
-            success, logs, commit_hash = GitService.pull_and_deploy(
-                deployment.project_path,
-                deployment.branch,
-                deployment.post_deploy_command,
-                deployment.run_as_user,
-                log_callback=sync_update_logs,
+            success, logs, commit_hash = await loop.run_in_executor(
+                None,
+                lambda: GitService.pull_and_deploy(
+                    deployment.project_path,
+                    deployment.branch,
+                    deployment.post_deploy_command,
+                    deployment.run_as_user,
+                    log_callback=sync_update_logs,
+                )
             )
 
             # Update Status
