@@ -2,6 +2,7 @@ import psutil
 import os
 import time
 import platform
+import socket
 from typing import Dict, Any, List, Optional
 
 
@@ -103,7 +104,6 @@ class SystemMonitor:
             return False
         except (psutil.AccessDenied, Exception):
             # Fallback: try to bind to the port
-            import socket
 
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 try:
@@ -171,28 +171,14 @@ class SystemMonitor:
     @staticmethod
     def find_free_port(start: int = 3000, end: int = 9000) -> Optional[int]:
         """Find the next available port in a range."""
-        try:
-            used_ports = set()
-            for conn in psutil.net_connections(kind="inet"):
-                if conn.status == "LISTEN":
-                    used_ports.add(conn.laddr.port)
-
-            for port in range(start, end + 1):
-                if port not in used_ports:
+        for port in range(start, end + 1):
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                try:
+                    s.bind(("", port))
                     return port
-            return None
-        except (psutil.AccessDenied, Exception):
-            # Fallback: brute force check
-            import socket
-
-            for port in range(start, end + 1):
-                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                    try:
-                        s.bind(("", port))
-                        return port
-                    except OSError:
-                        continue
-            return None
+                except OSError:
+                    continue
+        return None
 
     @staticmethod
     def get_process_ports(pid: int) -> List[int]:
