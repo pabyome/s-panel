@@ -2,7 +2,7 @@ import redis
 import os
 import re
 import subprocess
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional, Tuple, Iterator
 from app.core.config import settings
 
 
@@ -359,10 +359,10 @@ class RedisManager:
         return {k: v["keys"] for k, v in info.items() if k.startswith("db")}
 
     @classmethod
-    def scan_keys(cls, pattern="*", count=100, db: Optional[int] = None) -> List[str]:
+    def scan_keys(cls, pattern="*", count=100, db: Optional[int] = None) -> Iterator[str]:
         client = cls.get_client(db=db)
         # scan iterator
-        return [k for k in client.scan_iter(match=pattern, count=count)]
+        return client.scan_iter(match=pattern, count=count)
 
     @classmethod
     def get_key_details(cls, key: str, db: Optional[int] = None) -> Dict[str, Any]:
