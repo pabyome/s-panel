@@ -63,6 +63,105 @@
                       </div>
                   </div>
 
+                  <!-- WAF Manager -->
+                  <div v-if="currentTab === 'WAF'" class="flex-1 flex flex-col overflow-y-auto">
+                      <div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6">
+                          <div class="flex">
+                              <div class="flex-shrink-0">
+                                  <svg class="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                                  </svg>
+                              </div>
+                              <div class="ml-3">
+                                  <p class="text-sm text-blue-700">
+                                      Web Application Firewall (WAF) helps protect your site from attacks. Enabling this will regenerate your Nginx configuration.
+                                  </p>
+                              </div>
+                          </div>
+                      </div>
+
+                      <div class="space-y-6">
+                          <!-- Enable Toggle -->
+                          <div class="flex items-center justify-between">
+                              <span class="flex-grow flex flex-col">
+                                  <span class="text-sm font-medium text-gray-900">Enable WAF</span>
+                                  <span class="text-sm text-gray-500">Activate Nginx-based firewall rules</span>
+                              </span>
+                              <button
+                                  type="button"
+                                  @click="wafConfig.enabled = !wafConfig.enabled"
+                                  :class="[wafConfig.enabled ? 'bg-indigo-600' : 'bg-gray-200', 'relative inline-flex flex-shrink-0 h-6 w-11 border-2 border-transparent rounded-full cursor-pointer transition-colors ease-in-out duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500']"
+                              >
+                                  <span aria-hidden="true" :class="[wafConfig.enabled ? 'translate-x-5' : 'translate-x-0', 'pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform ring-0 transition ease-in-out duration-200']"></span>
+                              </button>
+                          </div>
+
+                          <template v-if="wafConfig.enabled">
+                              <!-- CC Defense -->
+                              <div class="border-t border-gray-200 pt-6">
+                                  <h4 class="text-sm font-medium text-gray-900 mb-4">CC Attack Defense</h4>
+                                  <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2">
+                                      <div>
+                                          <label class="block text-sm font-medium text-gray-700">Rate Limit (req/sec)</label>
+                                          <div class="mt-1">
+                                              <input type="number" v-model.number="wafConfig.cc_deny_rate" class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md">
+                                          </div>
+                                          <p class="mt-1 text-xs text-gray-500">Max requests per second from one IP</p>
+                                      </div>
+                                      <div>
+                                          <label class="block text-sm font-medium text-gray-700">Burst</label>
+                                          <div class="mt-1">
+                                              <input type="number" v-model.number="wafConfig.cc_deny_burst" class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md">
+                                          </div>
+                                          <p class="mt-1 text-xs text-gray-500">Allowed burst beyond rate limit</p>
+                                      </div>
+                                  </div>
+                              </div>
+
+                              <!-- Blocking Rules -->
+                              <div class="border-t border-gray-200 pt-6">
+                                  <h4 class="text-sm font-medium text-gray-900 mb-4">Blocking Rules</h4>
+
+                                  <div class="space-y-4">
+                                      <div class="relative flex items-start">
+                                          <div class="flex items-center h-5">
+                                              <input id="block_scanners" type="checkbox" v-model="wafConfig.rule_scan_block" class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded">
+                                          </div>
+                                          <div class="ml-3 text-sm">
+                                              <label for="block_scanners" class="font-medium text-gray-700">Block Common Scanners</label>
+                                              <p class="text-gray-500">Block known malicious user agents (e.g. sqlmap, nikto)</p>
+                                          </div>
+                                      </div>
+
+                                      <div class="relative flex items-start">
+                                          <div class="flex items-center h-5">
+                                              <input id="block_hacking" type="checkbox" v-model="wafConfig.rule_hacking_block" class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded">
+                                          </div>
+                                          <div class="ml-3 text-sm">
+                                              <label for="block_hacking" class="font-medium text-gray-700">Block Hacking Attempts</label>
+                                              <p class="text-gray-500">Block common SQL Injection and XSS patterns in query strings</p>
+                                          </div>
+                                      </div>
+
+                                      <div>
+                                          <label class="block text-sm font-medium text-gray-700">Blocked URI Keywords</label>
+                                          <div class="mt-1">
+                                              <textarea v-model="wafKeywords" rows="4" class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md" placeholder="Enter keywords to block in URI, one per line (e.g. /admin)"></textarea>
+                                          </div>
+                                      </div>
+                                  </div>
+                              </div>
+                          </template>
+                      </div>
+
+                      <div class="mt-6 flex justify-end">
+                          <button @click="saveWafConfig" :disabled="isSaving" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50">
+                              <svg v-if="isSaving" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                              {{ isSaving ? 'Saving...' : 'Save WAF Settings' }}
+                          </button>
+                      </div>
+                  </div>
+
               </div>
             </DialogPanel>
           </TransitionChild>
@@ -104,6 +203,7 @@ const emit = defineEmits(['close'])
 const tabs = [
   { name: 'Nginx Config', href: '#' },
   { name: 'Logs', href: '#' },
+  { name: 'WAF', href: '#' },
 ]
 
 const currentTab = ref('Nginx Config')
@@ -112,6 +212,17 @@ const logContent = ref('')
 const logType = ref('access')
 const isSaveConfigModalOpen = ref(false)
 const isSaving = ref(false)
+
+// WAF State
+const wafConfig = ref({
+    enabled: false,
+    cc_deny_rate: 100,
+    cc_deny_burst: 10,
+    rule_scan_block: false,
+    rule_hacking_block: false,
+    rule_keywords: []
+})
+const wafKeywords = ref('')
 
 const close = () => {
     emit('close')
@@ -161,9 +272,56 @@ const fetchLogs = async () => {
     }
 }
 
+const fetchWafConfig = async () => {
+    if (!props.website?.id) return
+    try {
+        const { data } = await axios.get(`/api/v1/waf/${props.website.id}`)
+        wafConfig.value = data
+        wafKeywords.value = (data.rule_keywords || []).join('\n')
+    } catch (e) {
+        console.error("Failed to load WAF config", e)
+        toast.error("Failed to load WAF settings")
+    }
+}
+
+const saveWafConfig = async () => {
+    if (isSaving.value) return
+    isSaving.value = true
+    try {
+        const payload = {
+            ...wafConfig.value,
+            rule_keywords: wafKeywords.value.split('\n').map(k => k.trim()).filter(k => k)
+        }
+        // Exclude fields not in schema if necessary, but schemas usually ignore extras
+        const { data } = await axios.post(`/api/v1/waf/${props.website.id}`, payload)
+        wafConfig.value = data
+        wafKeywords.value = (data.rule_keywords || []).join('\n')
+        toast.success("WAF settings saved successfully")
+
+        // Refresh nginx config view as it might have changed
+        if (currentTab.value === 'Nginx Config') fetchConfig()
+    } catch (e) {
+        console.error("Failed to save WAF config", e)
+        toast.error(e.response?.data?.detail || "Failed to save WAF settings")
+    } finally {
+        isSaving.value = false
+    }
+}
+
 watch(() => props.isOpen, (newVal) => {
     if (newVal && props.website) {
         fetchConfig()
+        fetchLogs()
+        fetchWafConfig()
+    }
+})
+
+watch(currentTab, (newVal) => {
+    if (newVal === 'WAF') {
+        fetchWafConfig()
+    } else if (newVal === 'Nginx Config') {
+        fetchConfig()
+    } else if (newVal === 'Logs') {
         fetchLogs()
     }
 })

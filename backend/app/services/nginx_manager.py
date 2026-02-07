@@ -2,6 +2,9 @@ import os
 import subprocess
 import shlex
 import shutil
+import re
+from typing import Optional
+from app.models.waf import WafConfig
 
 
 class NginxManager:
@@ -18,17 +21,82 @@ class NginxManager:
             return False
 
     @classmethod
-    def generate_config(cls, domain: str, port: int, is_static: bool = False, project_path: str = None) -> str:
+    def generate_config(cls, domain: str, port: int, is_static: bool = False, project_path: str = None, waf_config: Optional[WafConfig] = None, ssl_enabled: bool = False) -> str:
         # Extra safety: Ensure domain has no newlines to prevent config injection
         if "\n" in domain or "\r" in domain:
             raise ValueError("Invalid domain: contains newline characters")
+
+        # SSL Configuration
+        listen_block = f"listen {port};" if is_static else "listen 80;"
+        redirect_block = ""
+
+        if ssl_enabled:
+            # Assuming standard Certbot paths
+            listen_block = f"""listen 443 ssl;
+    ssl_certificate /etc/letsencrypt/live/{domain}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/{domain}/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;"""
+
+            redirect_block = f"""
+server {{
+    listen 80;
+    server_name {domain};
+    return 301 https://$host$request_uri;
+}}
+"""
+
+        # WAF Configuration Generation
+        waf_zone = ""
+        waf_rules = ""
+
+        if waf_config and waf_config.enabled:
+            safe_domain = re.sub(r'[^a-zA-Z0-9]', '_', domain)
+
+            # CC Defense: Rate Limiting
+            # Defined globally (or file scope), applied in server
+            # 1m stores ~16k states
+            waf_zone = f"limit_req_zone $binary_remote_addr zone={safe_domain}:1m rate={waf_config.cc_deny_rate}r/s;\n"
+
+            waf_rules += f"\n    # WAF: CC Defense\n    limit_req zone={safe_domain} burst={waf_config.cc_deny_burst} nodelay;\n"
+
+            # Scanner Blocking
+            if waf_config.rule_scan_block:
+                waf_rules += """
+    # WAF: Block Scanners
+    if ($http_user_agent ~* (netcrawler|npbot|malicious|scanner|test|python|curl|wget|nikto|sqlmap)) {
+        return 403;
+    }
+"""
+
+            # Hacking Blocking (Basic SQLi/XSS)
+            if waf_config.rule_hacking_block:
+                waf_rules += """
+    # WAF: Block Hacking Attempts
+    if ($query_string ~* "union.*select.*\\(") { return 403; }
+    if ($query_string ~* "concat.*\\(") { return 403; }
+    if ($query_string ~* "<script>") { return 403; }
+    if ($query_string ~* "base64_decode\\(") { return 403; }
+"""
+
+            # Keyword Blocking
+            if waf_config.rule_keywords:
+                waf_rules += "\n    # WAF: Keyword Blocking"
+                for keyword in waf_config.rule_keywords:
+                    if not keyword: continue
+                    # Escape double quotes for Nginx config string
+                    safe_keyword = re.escape(keyword).replace('"', '\\"')
+                    waf_rules += f"""
+    if ($request_uri ~* "{safe_keyword}") {{ return 403; }}"""
+                waf_rules += "\n"
 
         if is_static:
             # Static site configuration - serve files directly
             if not project_path:
                 raise ValueError("project_path is required for static sites")
-            return f"""server {{
-    listen {port};
+            return f"""{waf_zone}{redirect_block}
+server {{
+    {listen_block}
     server_name {domain};
 
     root {project_path};
@@ -36,6 +104,9 @@ class NginxManager:
 
     access_log /var/log/nginx/{domain}.access.log;
     error_log /var/log/nginx/{domain}.error.log;
+
+    # WAF Rules
+{waf_rules}
 
     location / {{
         try_files $uri $uri/ /index.html;
@@ -54,13 +125,16 @@ class NginxManager:
 """
         else:
             # Dynamic site configuration - proxy to local port
-            return f"""
+            return f"""{waf_zone}{redirect_block}
 server {{
-    listen 80;
+    {listen_block}
     server_name {domain};
 
     access_log /var/log/nginx/{domain}.access.log;
     error_log /var/log/nginx/{domain}.error.log;
+
+    # WAF Rules
+{waf_rules}
 
     location / {{
         proxy_pass http://127.0.0.1:{port};
@@ -74,8 +148,8 @@ server {{
 """
 
     @classmethod
-    def create_site(cls, domain: str, port: int, is_static: bool = False, project_path: str = None) -> bool:
-        config_content = cls.generate_config(domain, port, is_static, project_path)
+    def create_site(cls, domain: str, port: int, is_static: bool = False, project_path: str = None, waf_config: Optional[WafConfig] = None, ssl_enabled: bool = False) -> bool:
+        config_content = cls.generate_config(domain, port, is_static, project_path, waf_config, ssl_enabled)
         file_path = os.path.join(cls.SITES_AVAILABLE, domain)
 
         # Security: sanitize path (though os.path.join handles basic, we assume domain is validated)
