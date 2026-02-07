@@ -1,0 +1,270 @@
+import docker
+from typing import List, Dict, Any, Optional
+import logging
+
+logger = logging.getLogger(__name__)
+
+class DockerService:
+    def __init__(self):
+        try:
+            self.client = docker.from_env()
+        except Exception as e:
+            logger.error(f"Error connecting to Docker: {e}")
+            self.client = None
+
+    def _check_client(self):
+        if not self.client:
+            try:
+                self.client = docker.from_env()
+            except Exception as e:
+                logger.error(f"Failed to reconnect to Docker: {e}")
+                raise RuntimeError("Docker daemon is not available.")
+
+    def _format_container(self, container) -> Dict[str, Any]:
+        """Formats container object into a dictionary."""
+        # Handle image tags safely
+        image_tag = "dangling"
+        if container.image and hasattr(container.image, 'tags') and container.image.tags:
+            image_tag = container.image.tags[0]
+        elif container.image and hasattr(container.image, 'id'):
+            image_tag = container.image.id[:12]
+
+        # Extract ports safely
+        ports = {}
+        network_settings = container.attrs.get('NetworkSettings', {})
+        if network_settings and 'Ports' in network_settings:
+            ports = network_settings['Ports']
+
+        return {
+            "id": container.id,
+            "short_id": container.short_id,
+            "name": container.name,
+            "image": image_tag,
+            "status": container.status,
+            "state": container.attrs.get('State', {}),
+            "ports": ports,
+            "created": container.attrs.get('Created'),
+        }
+
+    def list_containers(self, all: bool = True) -> List[Dict[str, Any]]:
+        self._check_client()
+        try:
+            containers = self.client.containers.list(all=all)
+            return [self._format_container(c) for c in containers]
+        except Exception as e:
+            logger.error(f"Error listing containers: {e}")
+            raise
+
+    def get_container(self, container_id: str) -> Optional[Dict[str, Any]]:
+        self._check_client()
+        try:
+            container = self.client.containers.get(container_id)
+            return self._format_container(container)
+        except docker.errors.NotFound:
+            return None
+        except Exception as e:
+            logger.error(f"Error getting container {container_id}: {e}")
+            raise
+
+    def perform_action(self, container_id: str, action: str) -> Optional[Dict[str, Any]]:
+        self._check_client()
+        try:
+            container = self.client.containers.get(container_id)
+
+            if action == "start":
+                container.start()
+            elif action == "stop":
+                container.stop()
+            elif action == "restart":
+                container.restart()
+            elif action == "pause":
+                container.pause()
+            elif action == "unpause":
+                container.unpause()
+            elif action == "remove":
+                container.remove(force=True) # Force remove for convenience
+                return None
+            else:
+                raise ValueError(f"Invalid action: {action}")
+
+            # Allow some time for state change or reload
+            container.reload()
+            return self._format_container(container)
+        except docker.errors.NotFound:
+            return None
+        except Exception as e:
+            logger.error(f"Error performing {action} on {container_id}: {e}")
+            raise
+
+    def get_logs(self, container_id: str, tail: int = 200) -> str:
+        self._check_client()
+        try:
+            container = self.client.containers.get(container_id)
+            # logs returns bytes
+            logs = container.logs(tail=tail, timestamps=True)
+            return logs.decode('utf-8', errors='replace')
+        except docker.errors.NotFound:
+            raise ValueError(f"Container {container_id} not found")
+        except Exception as e:
+            logger.error(f"Error getting logs for {container_id}: {e}")
+            raise
+
+    def run_container(self, data: Any) -> Dict[str, Any]:
+        self._check_client()
+
+        # Prepare ports
+        ports = {}
+        for p in data.ports:
+            key = f"{p.container_port}/{p.protocol}"
+            ports[key] = p.host_port
+
+        # Prepare volumes
+        volumes = {}
+        for v in data.volumes:
+            volumes[v.host_path] = {'bind': v.container_path, 'mode': v.mode}
+
+        # Restart policy
+        restart_policy = {"Name": data.restart_policy}
+
+        try:
+            # Pull image if not exists
+            try:
+                self.client.images.get(data.image)
+            except docker.errors.ImageNotFound:
+                logger.info(f"Pulling image {data.image}...")
+                self.client.images.pull(data.image)
+
+            container = self.client.containers.run(
+                image=data.image,
+                name=data.name,
+                ports=ports,
+                volumes=volumes,
+                environment=data.env_vars,
+                restart_policy=restart_policy,
+                detach=True
+            )
+            return self._format_container(container)
+        except Exception as e:
+            logger.error(f"Error running container: {e}")
+            raise
+
+    # --- Swarm Methods ---
+
+    def get_swarm_info(self) -> Dict[str, Any]:
+        self._check_client()
+        try:
+            info = self.client.info()
+            swarm_info = info.get('Swarm', {})
+            return {
+                "active": swarm_info.get('LocalNodeState') == 'active',
+                "is_manager": swarm_info.get('ControlAvailable', False),
+                "nodes": swarm_info.get('Nodes', 0),
+                "managers": swarm_info.get('Managers', 0),
+                "cluster_id": swarm_info.get('Cluster', {}).get('ID'),
+            }
+        except Exception as e:
+            logger.error(f"Error getting swarm info: {e}")
+            return {"active": False, "error": str(e)}
+
+    def init_swarm(self, advertise_addr: str = "eth0:2377") -> str:
+        self._check_client()
+        try:
+            # Simple init, listen on 0.0.0.0, advertise on eth0/specific IP if needed
+            # For simplicity, we'll let docker default or user specify
+            return self.client.swarm.init(advertise_addr=advertise_addr)
+        except Exception as e:
+            logger.error(f"Error initializing swarm: {e}")
+            raise
+
+    def leave_swarm(self, force: bool = False) -> bool:
+        self._check_client()
+        try:
+            return self.client.swarm.leave(force=force)
+        except Exception as e:
+            logger.error(f"Error leaving swarm: {e}")
+            raise
+
+    def list_nodes(self) -> List[Dict[str, Any]]:
+        self._check_client()
+        try:
+            nodes = self.client.nodes.list()
+            return [{
+                "id": n.id,
+                "hostname": n.attrs.get('Description', {}).get('Hostname'),
+                "role": n.attrs.get('Spec', {}).get('Role'),
+                "availability": n.attrs.get('Spec', {}).get('Availability'),
+                "status": n.attrs.get('Status', {}).get('State'),
+                "address": n.attrs.get('Status', {}).get('Addr'),
+            } for n in nodes]
+        except docker.errors.APIError as e:
+            # If not a manager or swarm not active
+            logger.warning(f"Error listing nodes (might not be manager): {e}")
+            return []
+        except Exception as e:
+            logger.error(f"Error listing nodes: {e}")
+            raise
+
+    def list_services(self) -> List[Dict[str, Any]]:
+        self._check_client()
+        try:
+            services = self.client.services.list()
+            return [{
+                "id": s.id,
+                "name": s.name,
+                "image": s.attrs.get('Spec', {}).get('TaskTemplate', {}).get('ContainerSpec', {}).get('Image'),
+                "mode": s.attrs.get('Spec', {}).get('Mode', {}),
+                "replicas": s.attrs.get('Spec', {}).get('Mode', {}).get('Replicated', {}).get('Replicas'),
+                "created": s.attrs.get('CreatedAt'),
+                "updated": s.attrs.get('UpdatedAt'),
+            } for s in services]
+        except docker.errors.APIError as e:
+             logger.warning(f"Error listing services (might not be manager): {e}")
+             return []
+        except Exception as e:
+            logger.error(f"Error listing services: {e}")
+            raise
+
+    # --- System Stats for Dashboard ---
+
+    def get_system_stats(self) -> Dict[str, Any]:
+        self._check_client()
+        try:
+            # This is a bit heavy, iterating all containers to sum up usage.
+            # In a real heavy production env, this should be cached or streamed.
+            # For this MVP, we will fetch basic info.
+            # However, getting CPU % requires monitoring over time or using stats API which is slow.
+            # We'll use docker.info() for system limits and maybe just count containers for now
+            # or use a very quick sample if possible.
+
+            # Docker SDK stats() is a stream by default. Getting a single snapshot takes time.
+            # Let's return basics: container counts and system memory limit.
+            # Real-time CPU/Mem per container is better handled by client-side polling of individual stats or a background worker.
+
+            # But the user asked for "CPU usage 8.3%" style.
+            # We can try to get psutil info for the whole system as a proxy if running on host,
+            # but inside a container (if backend is containerized) it shows container stats.
+
+            # Let's stick to what we can get reliably.
+            import psutil
+
+            vm = psutil.virtual_memory()
+            cpu_percent = psutil.cpu_percent(interval=None) # Non-blocking
+
+            return {
+                "cpu_percent": cpu_percent,
+                "memory": {
+                    "total": vm.total,
+                    "available": vm.available,
+                    "used": vm.used,
+                    "percent": vm.percent
+                },
+                "containers": {
+                    "total": len(self.client.containers.list(all=True)),
+                    "running": len(self.client.containers.list(all=False))
+                }
+            }
+        except Exception as e:
+            logger.error(f"Error getting system stats: {e}")
+            return {}
+
+docker_service = DockerService()

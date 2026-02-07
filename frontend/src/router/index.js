@@ -10,6 +10,18 @@ const routes = [
     meta: { requiresAuth: true },
     children: [
       { path: '', name: 'dashboard', component: Dashboard },
+      {
+        path: 'docker',
+        name: 'docker',
+        component: () => import('../views/DockerLayout.vue'),
+        children: [
+            { path: '', redirect: '/docker/overview' },
+            { path: 'overview', name: 'docker-overview', component: () => import('../views/docker/Overview.vue') },
+            { path: 'containers', name: 'docker-containers', component: () => import('../views/docker/Containers.vue') },
+            { path: 'swarm', name: 'docker-swarm', component: () => import('../views/docker/Swarm.vue') },
+        ]
+      },
+      { path: 'containers', redirect: '/docker/containers' },
       { path: 'websites', name: 'websites', component: () => import('../views/Websites.vue') },
       { path: 'security', name: 'security', component: () => import('../views/Security.vue') },
       { path: 'supervisor', name: 'supervisor', component: () => import('../views/Supervisor.vue') },
