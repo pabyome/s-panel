@@ -64,6 +64,7 @@
 <script setup>
 import {
   HomeIcon,
+  CubeIcon,
   ServerIcon,
   ShieldCheckIcon,
   CpuChipIcon,
@@ -103,6 +104,7 @@ const userRole = computed(() => {
 
 const navigation = computed(() => [
   { name: 'Dashboard', href: '/', icon: HomeIcon, current: route.path === '/' },
+  { name: 'Docker', href: '/docker/overview', icon: CubeIcon, current: route.path.startsWith('/docker') },
   { name: 'Websites', href: '/websites', icon: ServerIcon, current: route.path.startsWith('/websites') },
   { name: 'Security', href: '/security', icon: ShieldCheckIcon, current: route.path.startsWith('/security') },
   { name: 'Supervisor', href: '/supervisor', icon: CpuChipIcon, current: route.path.startsWith('/supervisor') },
