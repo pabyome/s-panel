@@ -19,6 +19,9 @@ const routes = [
             { path: 'overview', name: 'docker-overview', component: () => import('../views/docker/Overview.vue') },
             { path: 'containers', name: 'docker-containers', component: () => import('../views/docker/Containers.vue') },
             { path: 'swarm', name: 'docker-swarm', component: () => import('../views/docker/Swarm.vue') },
+            { path: 'images', name: 'docker-images', component: () => import('../views/docker/Images.vue') },
+            { path: 'networks', name: 'docker-networks', component: () => import('../views/docker/Networks.vue') },
+            { path: 'volumes', name: 'docker-volumes', component: () => import('../views/docker/Volumes.vue') },
         ]
       },
       { path: 'containers', redirect: '/docker/containers' },
