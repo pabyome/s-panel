@@ -150,6 +150,37 @@ class DockerService:
 
     # --- Swarm Methods ---
 
+    def _resolve_ip(self, addr: str) -> str:
+        try:
+            # Handle empty address
+            if not addr:
+                return addr
+
+            # Split address and port if present
+            if ':' in addr:
+                parts = addr.split(':')
+                host = parts[0]
+                port = parts[1]
+            else:
+                host = addr
+                port = None
+
+            # Get interfaces
+            import psutil
+            import socket
+            interfaces = psutil.net_if_addrs()
+
+            # check if host is an interface name
+            if host in interfaces:
+                for snic in interfaces[host]:
+                    if snic.family == socket.AF_INET:
+                        return f"{snic.address}:{port}" if port else snic.address
+
+            return addr
+        except Exception as e:
+            logger.warning(f"Failed to resolve IP for {addr}: {e}")
+            return addr
+
     def get_swarm_info(self) -> Dict[str, Any]:
         self._check_client()
         try:
@@ -169,9 +200,9 @@ class DockerService:
     def init_swarm(self, advertise_addr: str = "eth0:2377") -> str:
         self._check_client()
         try:
-            # Simple init, listen on 0.0.0.0, advertise on eth0/specific IP if needed
-            # For simplicity, we'll let docker default or user specify
-            return self.client.swarm.init(advertise_addr=advertise_addr)
+            # Resolve interface name to IP if needed
+            resolved_addr = self._resolve_ip(advertise_addr)
+            return self.client.swarm.init(advertise_addr=resolved_addr)
         except Exception as e:
             logger.error(f"Error initializing swarm: {e}")
             raise
@@ -222,6 +253,55 @@ class DockerService:
              return []
         except Exception as e:
             logger.error(f"Error listing services: {e}")
+            raise
+
+    # --- Resources Methods ---
+
+    def list_images(self) -> List[Dict[str, Any]]:
+        self._check_client()
+        try:
+            images = self.client.images.list()
+            return [{
+                "id": img.short_id,
+                "tags": img.tags,
+                "size": img.attrs.get('Size'),
+                "created": img.attrs.get('Created'),
+            } for img in images]
+        except Exception as e:
+            logger.error(f"Error listing images: {e}")
+            raise
+
+    def list_networks(self) -> List[Dict[str, Any]]:
+        self._check_client()
+        try:
+            networks = self.client.networks.list()
+            return [{
+                "id": net.short_id,
+                "name": net.name,
+                "driver": net.attrs.get('Driver'),
+                "scope": net.attrs.get('Scope'),
+                "internal": net.attrs.get('Internal'),
+                "attachable": net.attrs.get('Attachable'),
+                "ingress": net.attrs.get('Ingress'),
+                "ipam": net.attrs.get('IPAM'),
+            } for net in networks]
+        except Exception as e:
+            logger.error(f"Error listing networks: {e}")
+            raise
+
+    def list_volumes(self) -> List[Dict[str, Any]]:
+        self._check_client()
+        try:
+            volumes = self.client.volumes.list()
+            return [{
+                "name": vol.name,
+                "driver": vol.attrs.get('Driver'),
+                "mountpoint": vol.attrs.get('Mountpoint'),
+                "created": vol.attrs.get('CreatedAt'),
+                "labels": vol.attrs.get('Labels') or {},
+            } for vol in volumes]
+        except Exception as e:
+            logger.error(f"Error listing volumes: {e}")
             raise
 
     # --- System Stats for Dashboard ---
