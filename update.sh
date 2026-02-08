@@ -9,6 +9,17 @@ echo "╔═══════════════════════�
 echo "║                   s-panel Update                         ║"
 echo "╚══════════════════════════════════════════════════════════╝"
 
+# 0. Check for Local Docker Registry
+if command -v docker &> /dev/null; then
+    if ! docker ps --format '{{.Names}}' | grep -q "^registry$"; then
+        echo "▶ Starting local Docker registry..."
+        # Remove if it exists but stopped
+        docker rm -f registry 2>/dev/null || true
+        # Start new registry
+        docker run -d -p 5000:5000 --restart=always --name registry registry:2
+    fi
+fi
+
 # 1. Pull latest changes
 echo "▶ Pulling latest changes from git..."
 # Fix for "dubious ownership" if running as root in user-owned dir
