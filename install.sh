@@ -112,6 +112,20 @@ else
     echo -e "${RED}Service file not created. Please run 'python3 generate_service.py' manually.${NC}"
 fi
 
+# 6. Setup Local Docker Registry (for Swarm)
+echo -e "${GREEN}[6/6] Setting up Local Docker Registry...${NC}"
+if ! docker ps --filter "name=registry" --format "{{.Names}}" | grep -q "^registry$"; then
+    echo "Starting registry on port 5000..."
+    # Check if container exists but defined
+    if docker ps -a --filter "name=registry" --format "{{.Names}}" | grep -q "^registry$"; then
+        docker start registry
+    else
+        docker run -d -p 5000:5000 --restart=always --name registry registry:2
+    fi
+else
+    echo "Registry already running."
+fi
+
 echo -e "${GREEN}=== Installation Complete! ===${NC}"
 echo "Your s-panel should be running on port 8000."
 echo "Configure Nginx to proxy 80/443 to localhost:8000."

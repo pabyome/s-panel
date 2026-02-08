@@ -14,6 +14,13 @@ class DeploymentConfig(SQLModel, table=True):
     post_deploy_command: Optional[str] = None  # Shell command to run after pull
     run_as_user: Optional[str] = Field(default="root")  # User to run build command
     notification_emails: Optional[str] = None  # Comma-separated emails for notifications
+
+    # Swarm Configuration
+    deployment_mode: str = Field(default="supervisor") # supervisor, docker-swarm
+    swarm_replicas: int = Field(default=2)
+    current_port: int = Field(default=3000) # Internal app port
+    dockerfile_path: Optional[str] = Field(default="Dockerfile") # Path to Dockerfile relative to project_path
+
     last_deployed_at: Optional[datetime] = None
     last_status: Optional[str] = None  # success, failed, running
     last_commit: Optional[str] = None  # Last deployed commit hash
@@ -29,7 +36,12 @@ class DeploymentCreate(SQLModel):
     supervisor_process: Optional[str] = None
     post_deploy_command: Optional[str] = None
     run_as_user: Optional[str] = "root"
+    run_as_user: Optional[str] = "root"
     notification_emails: Optional[str] = None
+    deployment_mode: str = "supervisor"
+    swarm_replicas: int = 2
+    current_port: int = 3000
+    dockerfile_path: Optional[str] = "Dockerfile"
 
 
 class DeploymentUpdate(SQLModel):
@@ -41,7 +53,12 @@ class DeploymentUpdate(SQLModel):
     supervisor_process: Optional[str] = None
     post_deploy_command: Optional[str] = None
     run_as_user: Optional[str] = None
+    run_as_user: Optional[str] = None
     notification_emails: Optional[str] = None
+    deployment_mode: Optional[str] = None
+    swarm_replicas: Optional[int] = None
+    current_port: Optional[int] = None
+    dockerfile_path: Optional[str] = None
 
 
 class DeploymentRead(SQLModel):
@@ -57,6 +74,10 @@ class DeploymentRead(SQLModel):
     post_deploy_command: Optional[str] = None
     run_as_user: Optional[str] = "root"  # User to run build command
     notification_emails: Optional[str] = None  # Comma-separated emails for notifications
+    deployment_mode: str = "supervisor"
+    swarm_replicas: int = 2
+    current_port: int = 3000
+    dockerfile_path: Optional[str] = "Dockerfile"
     last_deployed_at: Optional[datetime] = None
     last_status: Optional[str] = None
     last_commit: Optional[str] = None

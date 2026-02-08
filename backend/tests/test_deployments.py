@@ -178,3 +178,56 @@ def test_git_service_chained_groups():
     assert parsed_groups[1].isolated is True
     assert parsed_groups[0].commands[0] == ["cd", "backend"]
     assert parsed_groups[1].commands[0] == ["cd", "frontend"]
+
+
+def test_deploy_swarm_missing_dockerfile():
+    """Test that deploy_swarm fails gracefully when Dockerfile is missing."""
+    with patch("os.path.isdir", return_value=True), \
+         patch("os.path.isfile", return_value=False):  # No Dockerfile
+
+        success, logs, commit = GitService.deploy_swarm(
+            project_path="/tmp/test",
+            branch="main",
+            app_name="test-app",
+            swarm_replicas=2,
+            current_port=3000
+        )
+
+        assert success is False
+        assert "Dockerfile not found" in logs
+
+
+def test_deploy_swarm_missing_project_path():
+    """Test that deploy_swarm fails when project path doesn't exist."""
+    with patch("os.path.isdir", return_value=False):
+
+        success, logs, commit = GitService.deploy_swarm(
+            project_path="/nonexistent/path",
+            branch="main",
+            app_name="test-app"
+        )
+
+        assert success is False
+        assert "does not exist" in logs
+
+
+def test_deploy_swarm_git_pull_failure():
+    """Test that deploy_swarm handles git pull failures."""
+    with patch("os.path.isdir", return_value=True), \
+         patch("os.path.isfile", return_value=True), \
+         patch("subprocess.run") as mock_run:
+
+        # Mock git config (success) then git pull (failure)
+        mock_run.side_effect = [
+            MagicMock(returncode=0, stdout=""),  # git config
+            MagicMock(returncode=1, stdout="error: could not pull")  # git pull fails
+        ]
+
+        success, logs, commit = GitService.deploy_swarm(
+            project_path="/tmp/test",
+            branch="main",
+            app_name="test-app"
+        )
+
+        assert success is False
+        assert "Git pull failed" in logs

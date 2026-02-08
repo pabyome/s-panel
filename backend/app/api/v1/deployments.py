@@ -300,16 +300,32 @@ async def handle_deploy_background(deployment_id: uuid.UUID):
                 except Exception:
                     pass
 
-            success, logs, commit_hash = await loop.run_in_executor(
-                None,
-                lambda: GitService.pull_and_deploy(
-                    deployment.project_path,
-                    deployment.branch,
-                    deployment.post_deploy_command,
-                    deployment.run_as_user,
-                    log_callback=sync_update_logs,
+            if deployment.deployment_mode == "docker-swarm":
+                success, logs, commit_hash = await loop.run_in_executor(
+                    None,
+                    lambda: GitService.deploy_swarm(
+                        project_path=deployment.project_path,
+                        branch=deployment.branch,
+                        app_name=deployment.name,
+                        swarm_replicas=deployment.swarm_replicas,
+                        current_port=deployment.current_port,
+                        dockerfile_path=deployment.dockerfile_path or "Dockerfile",
+                        run_as_user=deployment.run_as_user,
+                        log_callback=sync_update_logs,
+                    )
                 )
-            )
+            else:
+                # Default / Supervisor Mode
+                success, logs, commit_hash = await loop.run_in_executor(
+                    None,
+                    lambda: GitService.pull_and_deploy(
+                        deployment.project_path,
+                        deployment.branch,
+                        deployment.post_deploy_command,
+                        deployment.run_as_user,
+                        log_callback=sync_update_logs,
+                    )
+                )
 
             # Update Status
             final_status = "success" if success else "failed"
@@ -328,7 +344,8 @@ async def handle_deploy_background(deployment_id: uuid.UUID):
                 pass
 
             # Restart Supervisor if needed and successful
-            if success and deployment.supervisor_process:
+            # Restart Supervisor if needed and successful (Only for supervisor mode)
+            if success and deployment.deployment_mode == "supervisor" and deployment.supervisor_process:
                 logger.info(f"Restarting supervisor process: {deployment.supervisor_process}")
                 SupervisorManager.restart_process(deployment.supervisor_process)
 

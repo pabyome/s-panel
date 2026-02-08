@@ -2,7 +2,10 @@ import subprocess
 import os
 import logging
 import shlex
-from typing import Tuple, Optional, List
+import uuid
+import yaml
+from typing import Tuple, Optional, List, Dict
+
 
 try:
     import pwd
@@ -487,6 +490,8 @@ class GitService:
         if parsed_groups:
             append_log("")
             append_log("▶ Step 2: Running post-deploy command...")
+
+
             append_log(f"  $ {post_command}")
             append_log("")
             append_log(f"  (Running as user: {run_as_user})")
@@ -557,6 +562,195 @@ class GitService:
         append_log("")
         append_log("═══════════════════════════════════════════════════════════")
         append_log("✓ Deployment completed successfully!")
+        append_log("═══════════════════════════════════════════════════════════")
+
+        return True, "\n".join(logs), commit_hash
+
+    @staticmethod
+    def deploy_swarm(
+        project_path: str,
+        branch: str,
+        app_name: str,
+        swarm_replicas: int = 2,
+        current_port: int = 3000,
+        dockerfile_path: str = "Dockerfile",
+        run_as_user: str = "root",
+        log_callback=None
+    ) -> Tuple[bool, str, Optional[str]]:
+        """
+        Deploy application to Docker Swarm.
+        Returns: (success, logs, commit_hash)
+        """
+        logs = []
+        commit_hash = None
+        registry = "127.0.0.1:5000"
+
+        def append_log(msg):
+            logs.append(msg)
+            if log_callback:
+                log_callback("\n".join(logs))
+
+        if not os.path.isdir(project_path):
+            return False, f"Project path does not exist: {project_path}", None
+
+        # Resolve dockerfile path (relative to project_path or absolute)
+        if not os.path.isabs(dockerfile_path):
+            full_dockerfile_path = os.path.join(project_path, dockerfile_path)
+        else:
+            full_dockerfile_path = dockerfile_path
+
+        if not os.path.isfile(full_dockerfile_path):
+            return False, f"Dockerfile not found at {full_dockerfile_path}", None
+
+        try:
+            subprocess.run(
+                ["git", "config", "--global", "--add", "safe.directory", project_path],
+                cwd=project_path, check=False, capture_output=True
+            )
+        except Exception:
+            pass
+
+        append_log(f"╔══════════════════════════════════════════════════════════╗")
+        append_log(f"║  Docker Swarm Deployment: {app_name}")
+        append_log(f"║  Path: {project_path}")
+        append_log(f"║  Branch: {branch}")
+        append_log(f"║  Replicas: {swarm_replicas} | Port: {current_port}")
+        append_log(f"╚══════════════════════════════════════════════════════════╝")
+        append_log("")
+
+        append_log("▶ Step 1: Pulling latest changes...")
+        append_log(f"  $ git pull origin {branch}")
+        append_log("")
+
+        success, output = GitService._run_command(["git", "pull", "origin", branch], cwd=project_path)
+        append_log(output)
+
+        if not success:
+            append_log("✗ Git pull failed. Deployment aborted.")
+            return False, "\n".join(logs), None
+
+        commit_hash = GitService.get_current_commit(project_path)
+        if commit_hash:
+            append_log(f"✓ Git pull successful. Commit: {commit_hash}")
+        append_log("")
+
+        safe_name = app_name.lower().replace(" ", "-").replace("_", "-")
+        image_tag = f"{registry}/{safe_name}:{commit_hash or 'latest'}"
+        image_latest = f"{registry}/{safe_name}:latest"
+
+        append_log("▶ Step 2: Building Docker image...")
+        append_log(f"  $ docker build -f {full_dockerfile_path} -t {image_tag} .")
+        append_log("")
+
+        try:
+            result = subprocess.run(
+                ["docker", "build", "-f", full_dockerfile_path, "-t", image_tag, "-t", image_latest, "."],
+                cwd=project_path, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=600
+            )
+            append_log(result.stdout)
+            if result.returncode != 0:
+                append_log(f"✗ Docker build failed with exit code {result.returncode}")
+                return False, "\n".join(logs), commit_hash
+        except subprocess.TimeoutExpired:
+            append_log("✗ Docker build timed out after 10 minutes")
+            return False, "\n".join(logs), commit_hash
+        except Exception as e:
+            append_log(f"✗ Docker build error: {str(e)}")
+            return False, "\n".join(logs), commit_hash
+
+        append_log("✓ Docker image built successfully")
+        append_log("")
+
+        append_log("▶ Step 3: Pushing image to local registry...")
+        append_log(f"  $ docker push {image_tag}")
+        append_log("")
+
+        try:
+            result = subprocess.run(
+                ["docker", "push", image_tag],
+                cwd=project_path, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=300
+            )
+            append_log(result.stdout)
+            if result.returncode != 0:
+                append_log(f"✗ Docker push failed with exit code {result.returncode}")
+                return False, "\n".join(logs), commit_hash
+            subprocess.run(["docker", "push", image_latest], cwd=project_path, capture_output=True, timeout=300)
+        except subprocess.TimeoutExpired:
+            append_log("✗ Docker push timed out")
+            return False, "\n".join(logs), commit_hash
+        except Exception as e:
+            append_log(f"✗ Docker push error: {str(e)}")
+            return False, "\n".join(logs), commit_hash
+
+        append_log("✓ Image pushed to registry")
+        append_log("")
+
+        env_vars = {"NODE_ENV": "production", "PORT": str(current_port)}
+        env_file_path = os.path.join(project_path, ".env")
+        if os.path.isfile(env_file_path):
+            try:
+                with open(env_file_path, "r") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith("#") and "=" in line:
+                            key, _, value = line.partition("=")
+                            env_vars[key.strip()] = value.strip().strip('"').strip("'")
+            except Exception as e:
+                append_log(f"  Warning: Could not read .env file: {e}")
+
+        append_log("▶ Step 4: Deploying to Docker Swarm...")
+
+        stack_config = {
+            "version": "3.8",
+            "services": {
+                "backend": {
+                    "image": image_tag,
+                    "deploy": {
+                        "replicas": swarm_replicas,
+                        "update_config": {"parallelism": 1, "delay": "10s", "order": "start-first", "failure_action": "rollback"},
+                        "rollback_config": {"parallelism": 1, "delay": "10s"},
+                        "restart_policy": {"condition": "on-failure", "delay": "5s", "max_attempts": 3}
+                    },
+                    "ports": [f"{current_port}:{current_port}"],
+                    "environment": env_vars,
+                    "networks": ["app-net"]
+                }
+            },
+            "networks": {"app-net": {"driver": "overlay"}}
+        }
+
+        stack_file = f"/tmp/{safe_name}-stack.yml"
+        try:
+            with open(stack_file, "w") as f:
+                yaml.dump(stack_config, f, default_flow_style=False)
+            append_log(f"  Generated stack config: {stack_file}")
+        except Exception as e:
+            append_log(f"✗ Failed to write stack config: {e}")
+            return False, "\n".join(logs), commit_hash
+
+        append_log(f"  $ docker stack deploy -c {stack_file} {safe_name}")
+        append_log("")
+
+        try:
+            result = subprocess.run(
+                ["docker", "stack", "deploy", "-c", stack_file, safe_name],
+                cwd=project_path, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=120
+            )
+            append_log(result.stdout)
+            if result.returncode != 0:
+                append_log(f"✗ Stack deploy failed with exit code {result.returncode}")
+                return False, "\n".join(logs), commit_hash
+        except subprocess.TimeoutExpired:
+            append_log("✗ Stack deploy timed out")
+            return False, "\n".join(logs), commit_hash
+        except Exception as e:
+            append_log(f"✗ Stack deploy error: {str(e)}")
+            return False, "\n".join(logs), commit_hash
+
+        append_log("")
+        append_log("═══════════════════════════════════════════════════════════")
+        append_log("✓ Docker Swarm deployment completed successfully!")
+        append_log(f"  Stack: {safe_name} | Image: {image_tag} | Replicas: {swarm_replicas}")
         append_log("═══════════════════════════════════════════════════════════")
 
         return True, "\n".join(logs), commit_hash

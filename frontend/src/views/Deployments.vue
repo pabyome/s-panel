@@ -105,7 +105,7 @@
         <!-- Card Header -->
         <div class="flex items-start justify-between gap-3">
           <div class="flex items-center gap-2 sm:gap-3 min-w-0">
-            <div class="flex h-9 w-9 sm:h-11 sm:w-11 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-lg shadow-violet-500/30 flex-shrink-0">
+            <div class="flex h-9 w-9 sm:h-11 sm:w-11 items-center justify-center rounded-xl bg-linear-to-br from-violet-500 to-purple-600 text-white shadow-lg shadow-violet-500/30 shrink-0">
               <svg class="h-4 w-4 sm:h-5 sm:w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M15.59 14.37a6 6 0 01-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.631 8.41m5.96 5.96a14.926 14.926 0 01-5.841 2.58m-.119-8.54a6 6 0 00-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 00-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 01-2.448-2.448 14.9 14.9 0 01.06-.312m-2.24 2.39a4.493 4.493 0 00-1.757 4.306 4.493 4.493 0 004.306-1.758M16.5 9a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
               </svg>
@@ -119,7 +119,7 @@
               </p>
             </div>
           </div>
-          <span :class="getStatusBadgeClass(deploy.last_status)" class="flex-shrink-0">
+          <span :class="getStatusBadgeClass(deploy.last_status)" class="shrink-0">
             <span v-if="deploy.last_status === 'running'" class="mr-1.5 h-1.5 w-1.5 animate-pulse rounded-full bg-current"></span>
             <span v-else :class="getStatusDotClass(deploy.last_status)"></span>
             {{ getStatusText(deploy.last_status) }}
@@ -141,21 +141,21 @@
         <!-- Card Body -->
         <div class="mt-3 sm:mt-4 space-y-2 sm:space-y-3">
           <div class="flex items-center gap-2 text-xs sm:text-sm text-gray-600">
-            <svg class="h-3.5 w-3.5 sm:h-4 sm:w-4 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <svg class="h-3.5 w-3.5 sm:h-4 sm:w-4 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
             </svg>
             <span class="truncate font-mono text-xs">{{ deploy.project_path }}</span>
           </div>
 
           <div v-if="deploy.notification_emails" class="flex items-center gap-2 text-xs sm:text-sm text-gray-600">
-            <svg class="h-3.5 w-3.5 sm:h-4 sm:w-4 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <svg class="h-3.5 w-3.5 sm:h-4 sm:w-4 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
             </svg>
             <span class="truncate text-xs">{{ deploy.notification_emails }}</span>
           </div>
 
           <div v-if="deploy.last_deployed_at" class="flex items-center gap-2 text-xs sm:text-sm">
-            <svg class="h-3.5 w-3.5 sm:h-4 sm:w-4 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <svg class="h-3.5 w-3.5 sm:h-4 sm:w-4 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <span class="text-gray-500 text-xs">{{ formatRelativeTime(deploy.last_deployed_at) }}</span>
@@ -287,7 +287,7 @@
           </div>
         </div>
 
-        <div class="rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 p-4 sm:p-5 ring-1 ring-blue-100">
+        <div class="rounded-xl bg-linear-to-br from-blue-50 to-indigo-50 p-4 sm:p-5 ring-1 ring-blue-100">
           <h4 class="flex items-center gap-2 text-sm font-semibold text-blue-900">
             <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
@@ -296,23 +296,23 @@
           </h4>
           <ol class="mt-3 space-y-2 text-xs sm:text-sm text-blue-800">
             <li class="flex items-start gap-2">
-              <span class="flex h-5 w-5 items-center justify-center rounded-full bg-blue-200 text-xs font-bold text-blue-700 flex-shrink-0">1</span>
+              <span class="flex h-5 w-5 items-center justify-center rounded-full bg-blue-200 text-xs font-bold text-blue-700 shrink-0">1</span>
               <span>Go to your repository <strong>Settings</strong> → <strong>Webhooks</strong></span>
             </li>
             <li class="flex items-start gap-2">
-              <span class="flex h-5 w-5 items-center justify-center rounded-full bg-blue-200 text-xs font-bold text-blue-700 flex-shrink-0">2</span>
+              <span class="flex h-5 w-5 items-center justify-center rounded-full bg-blue-200 text-xs font-bold text-blue-700 shrink-0">2</span>
               <span>Click <strong>Add webhook</strong></span>
             </li>
             <li class="flex items-start gap-2">
-              <span class="flex h-5 w-5 items-center justify-center rounded-full bg-blue-200 text-xs font-bold text-blue-700 flex-shrink-0">3</span>
+              <span class="flex h-5 w-5 items-center justify-center rounded-full bg-blue-200 text-xs font-bold text-blue-700 shrink-0">3</span>
               <span>Paste the <strong>Payload URL</strong> and <strong>Secret</strong></span>
             </li>
             <li class="flex items-start gap-2">
-              <span class="flex h-5 w-5 items-center justify-center rounded-full bg-blue-200 text-xs font-bold text-blue-700 flex-shrink-0">4</span>
+              <span class="flex h-5 w-5 items-center justify-center rounded-full bg-blue-200 text-xs font-bold text-blue-700 shrink-0">4</span>
               <span>Set Content type to <code class="rounded bg-blue-200/50 px-1">application/json</code></span>
             </li>
             <li class="flex items-start gap-2">
-              <span class="flex h-5 w-5 items-center justify-center rounded-full bg-blue-200 text-xs font-bold text-blue-700 flex-shrink-0">5</span>
+              <span class="flex h-5 w-5 items-center justify-center rounded-full bg-blue-200 text-xs font-bold text-blue-700 shrink-0">5</span>
               <span>Select <strong>"Just the push event"</strong></span>
             </li>
           </ol>
@@ -395,20 +395,84 @@
           </div>
         </div>
 
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Supervisor Process</label>
-          <select
-            v-model="editForm.supervisor_process"
-            class="block w-full rounded-xl border-0 py-2.5 px-4 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-violet-500 sm:text-sm"
-          >
-            <option value="">None (optional)</option>
-            <option v-for="proc in processes" :key="proc.name" :value="proc.name">{{ proc.name }}</option>
-          </select>
+        <div class="space-y-4 rounded-xl bg-gray-50 p-4 ring-1 ring-gray-200">
+          <div class="flex items-center justify-between">
+            <label class="block text-sm font-medium text-gray-700">Deployment Mode</label>
+            <div class="flex rounded-lg bg-gray-200 p-1">
+              <button
+                type="button"
+                @click="editForm.mode = 'supervisor'"
+                :class="[
+                  'rounded-md px-3 py-1 text-sm font-medium transition-all',
+                  editForm.mode === 'supervisor' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                ]"
+              >
+                Supervisor
+              </button>
+              <button
+                type="button"
+                @click="editForm.mode = 'docker-swarm'; editForm.post_deploy_command = ''; editForm.supervisor_process = ''"
+                :class="[
+                  'rounded-md px-3 py-1 text-sm font-medium transition-all',
+                  editForm.mode === 'docker-swarm' ? 'bg-white text-violet-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                ]"
+              >
+                Docker Swarm
+              </button>
+            </div>
+          </div>
+
+          <div v-if="editForm.mode === 'supervisor'">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Supervisor Process</label>
+            <select
+              v-model="editForm.supervisor_process"
+              class="block w-full rounded-xl border-0 py-2.5 px-4 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-violet-500 sm:text-sm"
+            >
+              <option value="">None (optional)</option>
+              <option v-for="proc in processes" :key="proc.name" :value="proc.name">{{ proc.name }}</option>
+            </select>
+             <p class="mt-1.5 text-xs text-gray-500">Process to restart after successful deployment.</p>
+          </div>
+
+          <div v-if="editForm.mode === 'docker-swarm'" class="space-y-4">
+             <div class="grid grid-cols-2 gap-4">
+                <div>
+                   <label class="block text-sm font-medium text-gray-700 mb-2">Replicas</label>
+                   <input
+                     type="number"
+                     v-model.number="editForm.swarm_replicas"
+                     min="1"
+                     class="block w-full rounded-xl border-0 py-2.5 px-4 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-violet-500 sm:text-sm"
+                   >
+                </div>
+                <div>
+                   <label class="block text-sm font-medium text-gray-700 mb-2">App Port</label>
+                   <input
+                     type="number"
+                     v-model.number="editForm.current_port"
+                     placeholder="3000"
+                     class="block w-full rounded-xl border-0 py-2.5 px-4 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-violet-500 sm:text-sm"
+                   >
+                   <p class="mt-1 text-xs text-gray-500">Internal port (e.g. 3000)</p>
+                </div>
+             </div>
+
+             <div class="flex items-start gap-3 rounded-lg bg-blue-50 p-3 text-sm text-blue-700">
+               <svg class="h-5 w-5 flex-shrink-0 text-blue-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                 <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+               </svg>
+               <p>Swarm mode automatically handles build, push, and deploy. <strong>Ensure a Dockerfile exists</strong> in your repo root.</p>
+             </div>
+          </div>
         </div>
 
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-2">Post-Deploy Command</label>
+          <div v-if="editForm.mode === 'docker-swarm'">
+              <p class="text-sm text-gray-500 italic">Managed automatically by Swarm (Build -> Push -> Stack Deploy)</p>
+          </div>
           <textarea
+            v-else
             v-model="editForm.post_deploy_command"
             rows="3"
             class="block w-full rounded-xl border-0 py-2.5 px-4 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-violet-500 sm:text-sm font-mono"
@@ -518,20 +582,94 @@
           </div>
         </div>
 
-        <div>
-           <label class="block text-sm font-medium text-gray-700 mb-2">Supervisor Process</label>
-            <select
-              v-model="form.supervisor_process"
-              class="block w-full rounded-xl border-0 py-2.5 px-4 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-violet-500 sm:text-sm"
-            >
-              <option value="">None (optional)</option>
-              <option v-for="proc in processes" :key="proc.name" :value="proc.name">{{ proc.name }}</option>
-            </select>
+        <div class="space-y-4 rounded-xl bg-gray-50 p-4 ring-1 ring-gray-200">
+          <div class="flex items-center justify-between">
+            <label class="block text-sm font-medium text-gray-700">Deployment Mode</label>
+            <div class="flex rounded-lg bg-gray-200 p-1">
+              <button
+                type="button"
+                @click="form.mode = 'supervisor'"
+                :class="[
+                  'rounded-md px-3 py-1 text-sm font-medium transition-all',
+                  form.mode === 'supervisor' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                ]"
+              >
+                Supervisor
+              </button>
+              <button
+                type="button"
+                @click="form.mode = 'docker-swarm'; form.post_deploy_command = ''; form.supervisor_process = ''"
+                :class="[
+                  'rounded-md px-3 py-1 text-sm font-medium transition-all',
+                  form.mode === 'docker-swarm' ? 'bg-white text-violet-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                ]"
+              >
+                Docker Swarm
+              </button>
+            </div>
+          </div>
+
+          <div v-if="form.mode === 'supervisor'">
+             <label class="block text-sm font-medium text-gray-700 mb-2">Supervisor Process</label>
+              <select
+                v-model="form.supervisor_process"
+                class="block w-full rounded-xl border-0 py-2.5 px-4 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-violet-500 sm:text-sm"
+              >
+                <option value="">None (optional)</option>
+                <option v-for="proc in processes" :key="proc.name" :value="proc.name">{{ proc.name }}</option>
+              </select>
+              <p class="mt-1.5 text-xs text-gray-500">Process to restart after successful deployment.</p>
+          </div>
+
+          <div v-if="form.mode === 'docker-swarm'" class="space-y-4">
+             <div class="grid grid-cols-2 gap-4">
+                <div>
+                   <label class="block text-sm font-medium text-gray-700 mb-2">Replicas</label>
+                   <input
+                     type="number"
+                     v-model.number="form.swarm_replicas"
+                     min="1"
+                     class="block w-full rounded-xl border-0 py-2.5 px-4 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-violet-500 sm:text-sm"
+                   >
+                </div>
+                <div>
+                   <label class="block text-sm font-medium text-gray-700 mb-2">App Port</label>
+                   <input
+                     type="number"
+                     v-model.number="form.current_port"
+                     placeholder="3000"
+                     class="block w-full rounded-xl border-0 py-2.5 px-4 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-violet-500 sm:text-sm"
+                   >
+                   <p class="mt-1 text-xs text-gray-500">Internal port (e.g. 3000)</p>
+             </div>
+
+             <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Dockerfile Path</label>
+                <input
+                  type="text"
+                  v-model="form.dockerfile_path"
+                  placeholder="Dockerfile"
+                  class="block w-full rounded-xl border-0 py-2.5 px-4 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-violet-500 sm:text-sm font-mono"
+                >
+                <p class="mt-1 text-xs text-gray-500">Relative to project root (e.g. Dockerfile or docker/Dockerfile.prod)</p>
+             </div>
+
+             <div class="flex items-start gap-3 rounded-lg bg-blue-50 p-3 text-sm text-blue-700">
+               <svg class="h-5 w-5 shrink-0 text-blue-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                 <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+               </svg>
+               <p>Swarm mode automatically handles build, push, and deploy.</p>
+             </div>
+          </div>
         </div>
 
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-2">Post-Deploy Command</label>
-          <input
+          <div v-if="form.mode === 'docker-swarm'">
+              <p class="text-sm text-gray-500 italic">Managed automatically by Swarm (Build -> Push -> Stack Deploy)</p>
+          </div>
+           <input
+            v-else
             type="text"
             v-model="form.post_deploy_command"
             class="block w-full rounded-xl border-0 py-2.5 px-4 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-violet-500 sm:text-sm font-mono"
@@ -683,7 +821,11 @@ const form = reactive({
     supervisor_process: '',
     post_deploy_command: '',
     run_as_user: 'root',
-    notification_emails: ''
+    notification_emails: '',
+    mode: 'supervisor', // 'supervisor' or 'docker-swarm'
+    swarm_replicas: 2,
+    current_port: 3000,
+    dockerfile_path: 'Dockerfile'
 })
 
 const editForm = reactive({
@@ -693,7 +835,11 @@ const editForm = reactive({
     supervisor_process: '',
     post_deploy_command: '',
     run_as_user: 'root',
-    notification_emails: ''
+    notification_emails: '',
+    mode: 'supervisor',
+    swarm_replicas: 2,
+    current_port: 3000,
+    dockerfile_path: 'Dockerfile'
 })
 
 const totalDeploys = computed(() => {
@@ -798,6 +944,7 @@ const openModal = () => {
     form.supervisor_process = ''
     form.post_deploy_command = ''
     form.run_as_user = 'root'
+    form.mode = 'supervisor'
     form.notification_emails = ''
     fetchProcesses()
     isModalOpen.value = true
@@ -833,6 +980,13 @@ const openEditModal = (deploy) => {
     editForm.post_deploy_command = deploy.post_deploy_command || ''
     editForm.run_as_user = deploy.run_as_user || 'root'
     editForm.notification_emails = deploy.notification_emails || ''
+
+    // Set deployment mode and Swarm specific fields
+    editForm.mode = deploy.deployment_mode || 'supervisor'
+    editForm.swarm_replicas = deploy.swarm_replicas || 2
+    editForm.current_port = deploy.current_port || 3000
+
+    editingDeployId.value = deploy.id
     fetchProcesses()
     isEditModalOpen.value = true
 }
