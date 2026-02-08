@@ -1128,7 +1128,19 @@ const clearDeploymentLogs = async () => {
 }
 
 const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text)
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text)
+    } else {
+        // Fallback for HTTP (non-secure context)
+        const textArea = document.createElement('textarea')
+        textArea.value = text
+        textArea.style.position = 'fixed'
+        textArea.style.left = '-9999px'
+        document.body.appendChild(textArea)
+        textArea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textArea)
+    }
 }
 
 const getStatusBadgeClass = (status) => {
