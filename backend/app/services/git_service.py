@@ -685,7 +685,7 @@ class GitService:
         append_log("✓ Image pushed to registry")
         append_log("")
 
-        env_vars = {"NODE_ENV": "production", "PORT": str(current_port)}
+        env_vars = {"NODE_ENV": "production", "PORT": str(current_port), "APP_PORT": str(current_port)}
         env_file_path = os.path.join(project_path, ".env")
         if os.path.isfile(env_file_path):
             try:
