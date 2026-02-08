@@ -956,6 +956,7 @@ const createDeployment = async () => {
     try {
         await axios.post('/api/v1/deployments/', {
             ...form,
+            deployment_mode: form.mode, // Map mode to backend field
             supervisor_process: form.supervisor_process || null,
             post_deploy_command: form.post_deploy_command || null,
             run_as_user: form.run_as_user || 'root',
@@ -985,6 +986,7 @@ const openEditModal = (deploy) => {
     editForm.mode = deploy.deployment_mode || 'supervisor'
     editForm.swarm_replicas = deploy.swarm_replicas || 2
     editForm.current_port = deploy.current_port || 3000
+    editForm.dockerfile_path = deploy.dockerfile_path || 'Dockerfile'
 
     editingDeployId.value = deploy.id
     fetchProcesses()
@@ -997,6 +999,7 @@ const updateDeployment = async () => {
     try {
         await axios.put(`/api/v1/deployments/${editingDeployId.value}`, {
             ...editForm,
+            deployment_mode: editForm.mode, // Map mode to backend field
             supervisor_process: editForm.supervisor_process || null,
             post_deploy_command: editForm.post_deploy_command || null,
             run_as_user: editForm.run_as_user || 'root',
