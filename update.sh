@@ -24,6 +24,15 @@ else
     echo "❌ 'uv' is not installed. Please install uv: curl -LsSf https://astral.sh/uv/install.sh | sh"
     exit 1
 fi
+
+# 2b. Run Database Migrations
+echo "▶ Running database migrations..."
+if [ -f "run_migrations.py" ]; then
+    python3 run_migrations.py
+else
+    echo "  ℹ No migration runner found"
+fi
+
 cd ..
 
 # 3. Update Frontend Dependencies and Build
