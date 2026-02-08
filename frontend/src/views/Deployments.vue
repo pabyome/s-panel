@@ -456,6 +456,16 @@
                    <p class="mt-1 text-xs text-gray-500">Internal port (e.g. 3000)</p>
                 </div>
              </div>
+             <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Dockerfile Path</label>
+                <input
+                  type="text"
+                  v-model="editForm.dockerfile_path"
+                  placeholder="Dockerfile"
+                  class="block w-full rounded-xl border-0 py-2.5 px-4 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-violet-500 sm:text-sm font-mono"
+                >
+                <p class="mt-1 text-xs text-gray-500">Relative to project root (e.g. Dockerfile or docker/Dockerfile.prod)</p>
+             </div>
 
              <div class="flex items-start gap-3 rounded-lg bg-blue-50 p-3 text-sm text-blue-700">
                <svg class="h-5 w-5 flex-shrink-0 text-blue-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
