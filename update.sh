@@ -16,7 +16,7 @@ if command -v docker &> /dev/null; then
         # Remove if it exists but stopped
         docker rm -f registry 2>/dev/null || true
         # Start new registry
-        docker run -d -p 5000:5000 --restart=always --name registry registry:2
+        docker run -d -p 5001:5000 --restart=always --name registry registry:2
     fi
 fi
 

@@ -583,7 +583,7 @@ class GitService:
         """
         logs = []
         commit_hash = None
-        registry = "127.0.0.1:5000"
+        registry = "127.0.0.1:5001"
 
         def append_log(msg):
             logs.append(msg)
@@ -685,7 +685,7 @@ class GitService:
         append_log("✓ Image pushed to registry")
         append_log("")
 
-        env_vars = {"NODE_ENV": "production", "PORT": str(current_port), "APP_PORT": str(current_port)}
+        env_vars = {"NODE_ENV": "production"}
         env_file_path = os.path.join(project_path, ".env")
         if os.path.isfile(env_file_path):
             try:
@@ -697,6 +697,11 @@ class GitService:
                             env_vars[key.strip()] = value.strip().strip('"').strip("'")
             except Exception as e:
                 append_log(f"  Warning: Could not read .env file: {e}")
+
+        # Enforce APP_PORT and PORT from deployment config (overrides .env)
+        env_vars["PORT"] = str(current_port)
+        env_vars["APP_PORT"] = str(current_port)
+
 
         append_log("▶ Step 4: Deploying to Docker Swarm...")
 
