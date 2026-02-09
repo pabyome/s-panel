@@ -291,6 +291,8 @@ class GitService:
         try:
             # Pass append_log to _git_lock to see debug info in deployment logs
             with GitService._git_lock(project_path, log_callback=append_log):
+                # Ensure we don't get stuck on divergent branches
+                GitService._run_command(["git", "config", "pull.rebase", "false"], cwd=project_path)
                 success, output = GitService._run_command(["git", "pull", "origin", branch], cwd=project_path)
         except TimeoutError as e:
             append_log(f"✗ Git lock timeout: {e}")
@@ -694,6 +696,8 @@ class GitService:
 
         try:
             with GitService._git_lock(project_path, log_callback=append_log):
+                # Ensure we don't get stuck on divergent branches
+                GitService._run_command(["git", "config", "pull.rebase", "false"], cwd=project_path)
                 success, output = GitService._run_command(["git", "pull", "origin", branch], cwd=project_path)
         except TimeoutError as e:
             append_log(f"✗ Git lock timeout: {e}")
