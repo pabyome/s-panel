@@ -93,6 +93,9 @@
                             <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{{ service.replicas }}</td>
                              <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{{ Object.keys(service.mode)[0] }}</td>
                              <td class="whitespace-nowrap px-3 py-4 text-right text-sm font-medium">
+                                <button v-if="service.replicas > 0" @click="pauseService(service)" class="text-amber-600 hover:text-amber-900 mr-4">Pause</button>
+                                <button v-else @click="scaleService(service)" class="text-green-600 hover:text-green-900 mr-4">Resume</button>
+
                                 <button @click="scaleService(service)" class="text-indigo-600 hover:text-indigo-900 mr-4">Scale</button>
                                 <button @click="restartService(service.id)" class="text-orange-600 hover:text-orange-900 mr-4">Restart</button>
                                 <button @click="removeService(service.id)" class="text-red-600 hover:text-red-900">Remove</button>
@@ -163,8 +166,22 @@ const leaveSwarm = async () => {
     }
 }
 
+const pauseService = async (service) => {
+    if(!confirm(`Are you sure you want to PAUSE ${service.name}? This stops all containers (scale to 0).`)) return;
+    try {
+        await axios.post(`/api/v1/swarm/services/${service.id}/scale?replicas=0`);
+        fetchDetails();
+    } catch (e) {
+        alert("Failed to pause service: " + (e.response?.data?.detail || e.message));
+    }
+}
+
 const scaleService = async (service) => {
-    const replicas = prompt(`Scale ${service.name} to how many replicas?`, service.replicas || 1);
+    const current = service.replicas || 0;
+    const defaultVal = current === 0 ? 1 : current;
+
+    // Prompt with default value
+    const replicas = prompt(`Scale ${service.name} to how many replicas?`, defaultVal.toString());
     if (replicas === null) return;
 
     const count = parseInt(replicas);

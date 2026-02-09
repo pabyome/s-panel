@@ -20,7 +20,7 @@ class DockerService:
                 logger.error(f"Failed to reconnect to Docker: {e}")
                 raise RuntimeError("Docker daemon is not available.")
 
-    def _format_container(self, container) -> Dict[str, Any]:
+    def _format_container(self, container, service_ports_map: Dict[str, Dict] = None) -> Dict[str, Any]:
         """Formats container object into a dictionary."""
         # Handle image tags safely
         image_tag = "dangling"
@@ -35,6 +35,24 @@ class DockerService:
         if network_settings and 'Ports' in network_settings:
             ports = network_settings['Ports']
 
+        # Check if ports are empty and look for Swarm service ports
+        if not ports and service_ports_map:
+            labels = container.attrs.get('Config', {}).get('Labels', {})
+            service_id = labels.get('com.docker.swarm.service.id')
+            if service_id and service_id in service_ports_map:
+                # Map structured service ports to container ports format
+                # Service ports: [{'Protocol': 'tcp', 'TargetPort': 3086, 'PublishedPort': 3086, 'PublishMode': 'ingress'}]
+                # Container ports expected format: {'80/tcp': [{'HostIp': '0.0.0.0', 'HostPort': '80'}]}
+
+                swarm_ports = service_ports_map[service_id]
+                for p in swarm_ports:
+                    proto = p.get('Protocol', 'tcp')
+                    target = p.get('TargetPort')
+                    published = p.get('PublishedPort')
+                    if target and published:
+                        key = f"{target}/{proto}"
+                        ports[key] = [{'HostIp': '0.0.0.0', 'HostPort': str(published)}]
+
         return {
             "id": container.id,
             "short_id": container.short_id,
@@ -44,13 +62,39 @@ class DockerService:
             "state": container.attrs.get('State', {}),
             "ports": ports,
             "created": container.attrs.get('Created'),
+            "labels": container.attrs.get('Config', {}).get('Labels', {}),
         }
 
     def list_containers(self, all: bool = True) -> List[Dict[str, Any]]:
         self._check_client()
         try:
             containers = self.client.containers.list(all=all)
-            return [self._format_container(c) for c in containers]
+
+            # Fetch services to map ports for Swarm containers
+            service_ports_map = {}
+            try:
+                # Only if we are a manager or can list services
+                services = self.client.services.list()
+                for s in services:
+                    endpoint = s.attrs.get('Endpoint', {})
+                    if 'Ports' in endpoint:
+                        service_ports_map[s.id] = endpoint['Ports']
+            except:
+                pass # Ignore errors if not swarm manager or API fails
+
+            # Fetch services to map ports for Swarm containers
+            service_ports_map = {}
+            try:
+                # Only if we are a manager or can list services
+                services = self.client.services.list()
+                for s in services:
+                    endpoint = s.attrs.get('Endpoint', {})
+                    if 'Ports' in endpoint:
+                        service_ports_map[s.id] = endpoint['Ports']
+            except:
+                pass # Ignore errors if not swarm manager or API fails
+
+            return [self._format_container(c, service_ports_map) for c in containers]
         except Exception as e:
             logger.error(f"Error listing containers: {e}")
             raise
@@ -59,7 +103,34 @@ class DockerService:
         self._check_client()
         try:
             container = self.client.containers.get(container_id)
-            return self._format_container(container)
+
+            # Fetch service info if needed for ports
+            service_ports_map = {}
+            try:
+                labels = container.attrs.get('Config', {}).get('Labels', {})
+                service_id = labels.get('com.docker.swarm.service.id')
+                if service_id:
+                    service = self.client.services.get(service_id)
+                    endpoint = service.attrs.get('Endpoint', {})
+                    if 'Ports' in endpoint:
+                        service_ports_map[service_id] = endpoint['Ports']
+            except:
+                pass
+
+            # Fetch service info if needed for ports
+            service_ports_map = {}
+            try:
+                labels = container.attrs.get('Config', {}).get('Labels', {})
+                service_id = labels.get('com.docker.swarm.service.id')
+                if service_id:
+                    service = self.client.services.get(service_id)
+                    endpoint = service.attrs.get('Endpoint', {})
+                    if 'Ports' in endpoint:
+                        service_ports_map[service_id] = endpoint['Ports']
+            except:
+                pass
+
+            return self._format_container(container, service_ports_map)
         except docker.errors.NotFound:
             return None
         except Exception as e:
