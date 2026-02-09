@@ -713,6 +713,7 @@ class GitService:
                     },
                     "ports": [f"{current_port}:{current_port}"],
                     "environment": env_vars,
+                    "extra_hosts": {"host.docker.internal": "host-gateway"},
                     "networks": ["app-net"]
                 }
             },
