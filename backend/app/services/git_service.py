@@ -4,6 +4,9 @@ import logging
 import shlex
 import uuid
 import yaml
+import fcntl
+import contextlib
+import time
 from typing import Tuple, Optional, List, Dict
 
 
@@ -176,6 +179,60 @@ class GitService:
         return None
 
     @staticmethod
+    def _get_git_root(path: str) -> Optional[str]:
+        """Find the root of the git repository."""
+        try:
+            result = subprocess.run(
+                ["git", "rev-parse", "--show-toplevel"],
+                cwd=path,
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            return result.stdout.strip()
+        except subprocess.CalledProcessError:
+            return None
+
+    @staticmethod
+    @contextlib.contextmanager
+    def _git_lock(project_path: str, timeout: int = 600):
+        """
+        File-based lock to prevent concurrent git operations on the same repo.
+        """
+        git_root = GitService._get_git_root(project_path) or project_path
+        lock_file_path = os.path.join(git_root, ".git_lock")
+
+        start_time = time.time()
+        lock_fd = None
+
+        try:
+            # Open (or create) the lock file
+            lock_fd = open(lock_file_path, 'w')
+
+            while True:
+                try:
+                    # Try to acquire an exclusive lock without blocking
+                    fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    break
+                except IOError:
+                    # If locked, wait and retry
+                    if time.time() - start_time > timeout:
+                        raise TimeoutError(f"Could not acquire git lock for {git_root} after {timeout} seconds")
+                    time.sleep(1)
+
+            yield
+
+        finally:
+            if lock_fd:
+                try:
+                    # Release the lock
+                    fcntl.flock(lock_fd, fcntl.LOCK_UN)
+                    lock_fd.close()
+                except Exception:
+                    pass
+                # Optional: Remove lock file (beware of race conditions here, safer to leave it)
+
+    @staticmethod
     def pull_and_deploy(project_path: str, branch: str, post_command: str = None, run_as_user: str = "root", log_callback=None) -> Tuple[bool, str, Optional[str]]:
         """
         Pull latest code and run post-deploy commands.
@@ -184,9 +241,7 @@ class GitService:
         logs = []
         commit_hash = None
         run_as_user = run_as_user or "root" # Ensure not None
-        parsed_deployment_groups = []
-
-
+        parsed_groups = []
 
         def append_log(msg):
             logs.append(msg)
@@ -195,7 +250,7 @@ class GitService:
 
         # 0. Validate post_command security
         if post_command:
-            is_valid, msg, parsed_groups_v2 = GitService.validate_command(post_command)
+            is_valid, msg, parsed_groups = GitService.validate_command(post_command)
             if not is_valid:
                 return False, f"Security Validation Failed: {msg}", None
 
@@ -204,8 +259,6 @@ class GitService:
             return False, f"Project path does not exist: {project_path}", None
 
         # 1b. Fix Dubious Ownership (Safe Directory)
-        # When running as root, we need to explicitly trust directories owned by other users
-        # This prevents "fatal: detected dubious ownership"
         try:
              subprocess.run(
                  ["git", "config", "--global", "--add", "safe.directory", project_path],
@@ -216,7 +269,7 @@ class GitService:
         except Exception:
              pass
 
-        # 2. Git Pull
+        # 2. Git Pull (with lock)
         append_log(f"╔══════════════════════════════════════════════════════════╗")
         append_log(f"║  Deploying: {project_path}")
         append_log(f"║  Branch: {branch}")
@@ -227,7 +280,16 @@ class GitService:
         append_log(f"  $ git pull origin {branch}")
         append_log("")
 
-        success, output = GitService._run_command(["git", "pull", "origin", branch], cwd=project_path)
+        try:
+            with GitService._git_lock(project_path):
+                success, output = GitService._run_command(["git", "pull", "origin", branch], cwd=project_path)
+        except TimeoutError as e:
+            append_log(f"✗ Git lock timeout: {e}")
+            return False, "\n".join(logs), None
+        except Exception as e:
+            append_log(f"✗ Git lock error: {e}")
+            return False, "\n".join(logs), None
+
         append_log(output)
 
         if not success:
@@ -618,11 +680,19 @@ class GitService:
         append_log(f"╚══════════════════════════════════════════════════════════╝")
         append_log("")
 
-        append_log("▶ Step 1: Pulling latest changes...")
         append_log(f"  $ git pull origin {branch}")
         append_log("")
 
-        success, output = GitService._run_command(["git", "pull", "origin", branch], cwd=project_path)
+        try:
+            with GitService._git_lock(project_path):
+                success, output = GitService._run_command(["git", "pull", "origin", branch], cwd=project_path)
+        except TimeoutError as e:
+            append_log(f"✗ Git lock timeout: {e}")
+            return False, "\n".join(logs), None
+        except Exception as e:
+            append_log(f"✗ Git lock error: {e}")
+            return False, "\n".join(logs), None
+
         append_log(output)
 
         if not success:
