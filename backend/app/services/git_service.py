@@ -180,18 +180,16 @@ class GitService:
 
     @staticmethod
     def _get_git_root(path: str) -> Optional[str]:
-        """Find the root of the git repository."""
-        try:
-            result = subprocess.run(
-                ["git", "rev-parse", "--show-toplevel"],
-                cwd=path,
-                capture_output=True,
-                text=True,
-                check=True
-            )
-            return result.stdout.strip()
-        except subprocess.CalledProcessError:
-            return None
+        """Find the root of the git repository by walking up directories."""
+        current_path = os.path.abspath(path)
+        while True:
+            if os.path.exists(os.path.join(current_path, ".git")):
+                return current_path
+            parent = os.path.dirname(current_path)
+            if parent == current_path:
+                # Reached filesystem root
+                return None
+            current_path = parent
 
     @staticmethod
     @contextlib.contextmanager
