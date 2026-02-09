@@ -22,8 +22,8 @@ def list_images(
 @router.delete("/{image_id}")
 def delete_image(
     image_id: str,
+    current_user: CurrentUser,
     force: bool = False,
-    current_user: CurrentUser = Depends(),
 ) -> Any:
     """
     Delete a Docker image properly by ID.
@@ -38,8 +38,8 @@ def delete_image(
 
 @router.post("/prune")
 def prune_images(
+    current_user: CurrentUser,
     all: bool = False,
-    current_user: CurrentUser = Depends(),
 ) -> Any:
     """
     Prune unused images.
