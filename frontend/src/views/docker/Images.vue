@@ -8,6 +8,14 @@
       </div>
       <div class="flex gap-2">
         <button
+          @click="pruneImages"
+          class="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-red-600 shadow-sm ring-1 ring-inset ring-red-300 hover:bg-red-50"
+          :disabled="isPruning"
+        >
+          <TrashIcon class="h-4 w-4" :class="{ 'animate-bounce': isPruning }" />
+          {{ isPruning ? 'Pruning...' : 'Prune Unused' }}
+        </button>
+        <button
           @click="fetchImages"
           class="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
         >
@@ -27,6 +35,9 @@
               <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tags</th>
               <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Size</th>
               <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+              <th scope="col" class="relative px-6 py-3">
+                <span class="sr-only">Actions</span>
+              </th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-200 bg-white">
@@ -44,6 +55,9 @@
                <td class="whitespace-nowrap px-6 py-4">
                 <div class="text-sm text-gray-500">{{ formatDate(image.created) }}</div>
               </td>
+              <td class="whitespace-nowrap px-6 py-4 text-right text-sm font-medium">
+                <button @click="deleteImage(image.id)" class="text-red-600 hover:text-red-900 ml-4">Delete</button>
+              </td>
             </tr>
             <tr v-if="images.length === 0 && !isLoading">
                 <td colspan="4" class="px-6 py-4 text-center text-sm text-gray-500">
@@ -59,11 +73,12 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { ArrowPathIcon } from '@heroicons/vue/24/outline'
+import { ArrowPathIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import axios from 'axios'
 
 const images = ref([])
 const isLoading = ref(false)
+const isPruning = ref(false)
 
 const fetchImages = async () => {
   isLoading.value = true
@@ -89,6 +104,34 @@ const formatBytes = (bytes, decimals = 2) => {
 const formatDate = (dateStr) => {
     if (!dateStr) return '';
     return new Date(dateStr).toLocaleString();
+}
+
+const deleteImage = async (id) => {
+    if (!confirm('Are you sure you want to delete this image? This action cannot be undone.')) return;
+
+    try {
+        await axios.delete(`/api/v1/images/${id}?force=true`); // Force delete usually needed
+        fetchImages();
+    } catch (error) {
+        console.error('Error deleting image:', error);
+        alert('Failed to delete image: ' + (error.response?.data?.detail || error.message));
+    }
+}
+
+const pruneImages = async () => {
+    if (!confirm('Are you sure you want to prune ALL unused images? This will free up space but deletes build cache.')) return;
+
+    isPruning.value = true;
+    try {
+        const res = await axios.post('/api/v1/images/prune?all=true'); // Prune ALL unused
+        alert(`Pruned ${res.data.ImagesDeleted?.length || 0} images and reclaimed ${formatBytes(res.data.SpaceReclaimed)}.`);
+        fetchImages();
+    } catch (error) {
+        console.error('Error pruning images:', error);
+        alert('Failed to prune images: ' + (error.response?.data?.detail || error.message));
+    } finally {
+        isPruning.value = false;
+    }
 }
 
 onMounted(() => {

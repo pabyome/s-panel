@@ -271,6 +271,29 @@ class DockerService:
             logger.error(f"Error listing images: {e}")
             raise
 
+    def delete_image(self, image_id: str, force: bool = False) -> bool:
+        self._check_client()
+        try:
+            self.client.images.remove(image_id, force=force)
+            return True
+        except docker.errors.ImageNotFound:
+            raise ValueError(f"Image {image_id} not found")
+        except Exception as e:
+            logger.error(f"Error deleting image {image_id}: {e}")
+            raise
+
+    def prune_images(self, filters: Dict[str, Any] = None) -> Dict[str, Any]:
+        self._check_client()
+        try:
+            # filters default to dangling=true if None
+            # To prune all unused images, filters should be {'dangling': False} ? No.
+            # Docker SDK Prune: filters (dict) – Filters to process on the prune list.
+            # Available filters: dangling (boolean) When set to true (or 1), prune only unused and untagged images. When set to false (or 0), all unused images are pruned.
+            return self.client.images.prune(filters=filters)
+        except Exception as e:
+            logger.error(f"Error pruning images: {e}")
+            raise
+
     def list_networks(self) -> List[Dict[str, Any]]:
         self._check_client()
         try:

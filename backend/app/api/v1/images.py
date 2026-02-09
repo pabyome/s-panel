@@ -18,3 +18,39 @@ def list_images(
         return images
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/{image_id}")
+def delete_image(
+    image_id: str,
+    force: bool = False,
+    current_user: CurrentUser = Depends(),
+) -> Any:
+    """
+    Delete a Docker image properly by ID.
+    """
+    try:
+        success = docker_service.delete_image(image_id, force=force)
+        return {"success": success}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/prune")
+def prune_images(
+    all: bool = False,
+    current_user: CurrentUser = Depends(),
+) -> Any:
+    """
+    Prune unused images.
+    If all=True, delete all unused images, not just dangling ones.
+    """
+    try:
+        filters = None
+        if all:
+            filters = {"dangling": False}
+
+        result = docker_service.prune_images(filters=filters)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
