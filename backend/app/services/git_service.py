@@ -193,12 +193,16 @@ class GitService:
 
     @staticmethod
     @contextlib.contextmanager
-    def _git_lock(project_path: str, timeout: int = 600):
+    def _git_lock(project_path: str, timeout: int = 600, log_callback=None):
         """
         File-based lock to prevent concurrent git operations on the same repo.
         """
         git_root = GitService._get_git_root(project_path) or project_path
         lock_file_path = os.path.join(git_root, ".git_lock")
+
+        if log_callback:
+            log_callback(f"[debug] Resolving git root for '{project_path}' -> '{git_root}'")
+            log_callback(f"[debug] Using lock file: {lock_file_path}")
 
         start_time = time.time()
         lock_fd = None
@@ -207,10 +211,15 @@ class GitService:
             # Open (or create) the lock file
             lock_fd = open(lock_file_path, 'w')
 
+            if log_callback:
+                log_callback("[debug] Acquiring lock...")
+
             while True:
                 try:
                     # Try to acquire an exclusive lock without blocking
                     fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    if log_callback:
+                        log_callback("[debug] Lock acquired.")
                     break
                 except IOError:
                     # If locked, wait and retry
@@ -226,9 +235,10 @@ class GitService:
                     # Release the lock
                     fcntl.flock(lock_fd, fcntl.LOCK_UN)
                     lock_fd.close()
+                    if log_callback:
+                        log_callback("[debug] Lock released.")
                 except Exception:
                     pass
-                # Optional: Remove lock file (beware of race conditions here, safer to leave it)
 
     @staticmethod
     def pull_and_deploy(project_path: str, branch: str, post_command: str = None, run_as_user: str = "root", log_callback=None) -> Tuple[bool, str, Optional[str]]:
@@ -279,7 +289,8 @@ class GitService:
         append_log("")
 
         try:
-            with GitService._git_lock(project_path):
+            # Pass append_log to _git_lock to see debug info in deployment logs
+            with GitService._git_lock(project_path, log_callback=append_log):
                 success, output = GitService._run_command(["git", "pull", "origin", branch], cwd=project_path)
         except TimeoutError as e:
             append_log(f"✗ Git lock timeout: {e}")
@@ -682,7 +693,7 @@ class GitService:
         append_log("")
 
         try:
-            with GitService._git_lock(project_path):
+            with GitService._git_lock(project_path, log_callback=append_log):
                 success, output = GitService._run_command(["git", "pull", "origin", branch], cwd=project_path)
         except TimeoutError as e:
             append_log(f"✗ Git lock timeout: {e}")
