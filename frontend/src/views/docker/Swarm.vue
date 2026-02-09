@@ -81,6 +81,9 @@
                             <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Image</th>
                             <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Replicas</th>
                             <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Mode</th>
+                            <th scope="col" class="relative px-3 py-3.5">
+                                <span class="sr-only">Actions</span>
+                            </th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200 bg-white">
@@ -89,9 +92,14 @@
                             <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{{ service.image }}</td>
                             <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{{ service.replicas }}</td>
                              <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{{ Object.keys(service.mode)[0] }}</td>
+                             <td class="whitespace-nowrap px-3 py-4 text-right text-sm font-medium">
+                                <button @click="scaleService(service)" class="text-indigo-600 hover:text-indigo-900 mr-4">Scale</button>
+                                <button @click="restartService(service.id)" class="text-orange-600 hover:text-orange-900 mr-4">Restart</button>
+                                <button @click="removeService(service.id)" class="text-red-600 hover:text-red-900">Remove</button>
+                             </td>
                         </tr>
                         <tr v-if="services.length === 0">
-                            <td colspan="4" class="py-4 text-center text-sm text-gray-500">No services found.</td>
+                            <td colspan="5" class="py-4 text-center text-sm text-gray-500">No services found.</td>
                         </tr>
                     </tbody>
                 </table>
@@ -145,7 +153,6 @@ const initSwarm = async () => {
 }
 
 const leaveSwarm = async () => {
-    if(!confirm("Are you sure you want to leave the swarm? Services running on this node will be lost.")) return;
     try {
         await axios.post('/api/v1/swarm/leave?force=true')
         fetchSwarmInfo()
@@ -153,6 +160,45 @@ const leaveSwarm = async () => {
         services.value = []
     } catch (e) {
         alert("Failed to leave swarm: " + (e.response?.data?.detail || e.message))
+    }
+}
+
+const scaleService = async (service) => {
+    const replicas = prompt(`Scale ${service.name} to how many replicas?`, service.replicas || 1);
+    if (replicas === null) return;
+
+    const count = parseInt(replicas);
+    if (isNaN(count) || count < 0) {
+        alert("Invalid number of replicas");
+        return;
+    }
+
+    try {
+        await axios.post(`/api/v1/swarm/services/${service.id}/scale?replicas=${count}`);
+        fetchDetails();
+    } catch (e) {
+        alert("Failed to scale service: " + (e.response?.data?.detail || e.message));
+    }
+}
+
+const restartService = async (id) => {
+    if(!confirm("Are you sure you want to restart this service? It will trigger a rolling update.")) return;
+    try {
+        await axios.post(`/api/v1/swarm/services/${id}/restart`);
+        alert("Service restart triggered.");
+        fetchDetails();
+    } catch (e) {
+        alert("Failed to restart service: " + (e.response?.data?.detail || e.message));
+    }
+}
+
+const removeService = async (id) => {
+    if(!confirm("Are you sure you want to REMOVE this service? This action cannot be undone.")) return;
+    try {
+        await axios.delete(`/api/v1/swarm/services/${id}`);
+        fetchDetails();
+    } catch (e) {
+        alert("Failed to remove service: " + (e.response?.data?.detail || e.message));
     }
 }
 

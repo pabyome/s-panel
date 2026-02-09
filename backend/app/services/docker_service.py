@@ -255,6 +255,42 @@ class DockerService:
             logger.error(f"Error listing services: {e}")
             raise
 
+    def scale_service(self, service_id: str, replicas: int) -> bool:
+        self._check_client()
+        try:
+            service = self.client.services.get(service_id)
+            mode = service.attrs.get('Spec', {}).get('Mode', {})
+            if 'Replicated' not in mode:
+                raise ValueError("Service is not in replicated mode")
+
+            service.scale(replicas)
+            return True
+        except Exception as e:
+            logger.error(f"Error scaling service {service_id}: {e}")
+            raise
+
+    def remove_service(self, service_id: str) -> bool:
+        self._check_client()
+        try:
+            service = self.client.services.get(service_id)
+            service.remove()
+            return True
+        except Exception as e:
+            logger.error(f"Error removing service {service_id}: {e}")
+            raise
+
+    def restart_service(self, service_id: str) -> bool:
+        """Force update the service to trigger a rolling restart."""
+        self._check_client()
+        try:
+            service = self.client.services.get(service_id)
+            # Force update by updating the ForceUpdate index
+            service.force_update()
+            return True
+        except Exception as e:
+            logger.error(f"Error restarting service {service_id}: {e}")
+            raise
+
     # --- Resources Methods ---
 
     def list_images(self) -> List[Dict[str, Any]]:

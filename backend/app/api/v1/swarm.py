@@ -66,6 +66,51 @@ def list_services(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.post("/services/{service_id}/scale")
+def scale_service(
+    service_id: str,
+    replicas: int,
+    current_user: CurrentUser,
+) -> Any:
+    """
+    Scale a Swarm service.
+    """
+    try:
+        success = docker_service.scale_service(service_id, replicas)
+        return {"success": success}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/services/{service_id}")
+def remove_service(
+    service_id: str,
+    current_user: CurrentUser,
+) -> Any:
+    """
+    Remove a Swarm service.
+    """
+    try:
+        success = docker_service.remove_service(service_id)
+        return {"success": success}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/services/{service_id}/restart")
+def restart_service(
+    service_id: str,
+    current_user: CurrentUser,
+) -> Any:
+    """
+    Restart a Swarm service (force update).
+    """
+    try:
+        success = docker_service.restart_service(service_id)
+        return {"success": success}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/stats")
 def get_stats(
     current_user: CurrentUser,
