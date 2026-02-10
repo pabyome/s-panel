@@ -785,7 +785,6 @@ class GitService:
         env_vars["PORT"] = str(current_port)
         env_vars["APP_PORT"] = str(current_port)
 
-
         append_log("▶ Step 4: Deploying to Docker Swarm...")
 
         stack_config = {
@@ -801,12 +800,29 @@ class GitService:
                     },
                     "ports": [f"{current_port}:{current_port}"],
                     "environment": env_vars,
-                    "extra_hosts": {"host.docker.internal": "host-gateway"},
+                    "extra_hosts": {
+                        "host.docker.internal": "host-gateway",
+                        "localhost": "host-gateway"
+                    },
                     "networks": ["app-net"]
                 }
             },
             "networks": {"app-net": {"driver": "overlay"}}
         }
+
+        # Auto-mount JSON, PEM, XML files (credentials)
+        volumes = []
+        try:
+            for file in os.listdir(project_path):
+                if file.endswith((".json", ".pem", ".xml")):
+                     host_path = os.path.join(project_path, file)
+                     container_path = f"/usr/src/app/{file}"
+                     volumes.append(f"{host_path}:{container_path}")
+        except Exception:
+            pass
+
+        if volumes:
+             stack_config["services"]["backend"]["volumes"] = volumes
 
         stack_file = f"/tmp/{safe_name}-stack.yml"
         try:

@@ -471,7 +471,17 @@
                <svg class="h-5 w-5 flex-shrink-0 text-blue-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                  <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
                </svg>
-               <p>Swarm mode automatically handles build, push, and deploy. <strong>Ensure a Dockerfile exists</strong> in your repo root.</p>
+               <div class="space-y-1">
+                 <p class="font-semibold">Swarm Mode Auto-Config:</p>
+                 <ul class="list-disc list-inside space-y-0.5 ml-1">
+                   <li>Handles Build → Push → Deploy automatically.</li>
+                   <li>Maps <code>localhost</code> to host machine (DB/Redis access).</li>
+                 </ul>
+                 <p class="mt-2 text-xs leading-relaxed border-t border-blue-200 pt-2">
+                   <strong>Complete Docker Setup?</strong> If using containers (DB, Redis), ensure they map ports to the host (e.g. <code>-p 5432:5432</code>).
+                   Then <code>DB_HOST=localhost</code> works correctly.
+                 </p>
+               </div>
              </div>
           </div>
         </div>
@@ -668,7 +678,18 @@
                <svg class="h-5 w-5 shrink-0 text-blue-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                  <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
                </svg>
-               <p>Swarm mode automatically handles build, push, and deploy.</p>
+               <div class="space-y-1">
+                 <p class="font-semibold">Swarm Mode Auto-Config:</p>
+                 <ul class="list-disc list-inside space-y-0.5 ml-1">
+                   <li>Handles Build → Push → Deploy automatically.</li>
+                   <li>Maps <code>localhost</code> to host machine (DB/Redis access).</li>
+                   <li>Auto-mounts <code>.json/.pem</code> credentials from repo root.</li>
+                 </ul>
+                 <p class="mt-2 text-xs leading-relaxed border-t border-blue-200 pt-2">
+                   <strong>Complete Docker Setup?</strong> If using containers (DB, Redis), ensure they map ports to the host (e.g. <code>-p 5432:5432</code>).
+                   Then <code>DB_HOST=localhost</code> works correctly.
+                 </p>
+               </div>
              </div>
           </div>
         </div>
