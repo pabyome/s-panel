@@ -24,10 +24,16 @@ class DockerService:
         """Formats container object into a dictionary."""
         # Handle image tags safely
         image_tag = "dangling"
-        if container.image and hasattr(container.image, 'tags') and container.image.tags:
-            image_tag = container.image.tags[0]
-        elif container.image and hasattr(container.image, 'id'):
-            image_tag = container.image.id[:12]
+        try:
+            if container.image and hasattr(container.image, 'tags') and container.image.tags:
+                image_tag = container.image.tags[0]
+            elif container.image and hasattr(container.image, 'id'):
+                image_tag = container.image.id[:12]
+        except docker.errors.NotFound:
+            # Image might have been deleted while container is still around
+            image_tag = container.attrs.get('Config', {}).get('Image', 'unknown')[:12]
+        except Exception:
+             pass
 
         # Extract ports safely
         ports = {}
