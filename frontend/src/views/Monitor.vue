@@ -49,7 +49,16 @@
         </div>
 
         <!-- Memory -->
-        <div class="bg-white overflow-hidden shadow rounded-2xl ring-1 ring-gray-900/5">
+        <div class="bg-white overflow-hidden shadow rounded-2xl ring-1 ring-gray-900/5 relative">
+            <div class="absolute top-5 right-5">
+                <button
+                    @click="openClearRamModal"
+                    class="text-xs bg-violet-50 text-violet-700 px-2 py-1 rounded hover:bg-violet-100 transition-colors border border-violet-200"
+                    title="Clear System RAM Cache"
+                >
+                    Clear Cache
+                </button>
+            </div>
             <div class="p-5">
                 <div class="flex items-center">
                      <div class="flex-shrink-0">
@@ -129,16 +138,32 @@
             </table>
         </div>
     </div>
+
+    <ConfirmModal
+      :isOpen="isClearRamModalOpen"
+      type="warning"
+      title="Clear RAM Cache"
+      message="This will clear the system page cache, dentries, and inodes. This is generally safe but may temporarily impact performance while caches are rebuilt. Are you sure?"
+      confirmText="Clear Memory"
+      :isLoading="isClearingRam"
+      @confirm="handleClearRam"
+      @cancel="isClearRamModalOpen = false"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import axios from 'axios'
+import ConfirmModal from '../components/ConfirmModal.vue'
+import { useToast } from '../composables/useToast.js'
 
+const toast = useToast()
 const stats = ref({}) // cpu, memory, disk, load_avg
 const processes = ref([])
 const connected = ref(false)
+const isClearRamModalOpen = ref(false)
+const isClearingRam = ref(false)
 let ws = null
 let procInterval = null
 
@@ -185,6 +210,24 @@ const fetchProcesses = async () => {
         processes.value = data
     } catch (e) {
         console.error("Failed to fetch processes:", e)
+    }
+}
+
+const openClearRamModal = () => {
+    isClearRamModalOpen.value = true
+}
+
+const handleClearRam = async () => {
+    isClearingRam.value = true
+    try {
+        await axios.post('/api/v1/system/memory/clear')
+        toast.success("System memory cleared successfully")
+        isClearRamModalOpen.value = false
+    } catch (e) {
+        console.error("Failed to clear memory:", e)
+        toast.error("Failed to clear system memory")
+    } finally {
+        isClearingRam.value = false
     }
 }
 

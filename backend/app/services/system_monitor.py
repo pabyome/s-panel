@@ -3,6 +3,7 @@ import os
 import time
 import platform
 import socket
+import subprocess
 from typing import Dict, Any, List, Optional
 
 
@@ -203,3 +204,18 @@ class SystemMonitor:
             "uptime": cls.get_uptime(),
             "os_info": cls.get_os_info(),
         }
+
+    @staticmethod
+    def clear_system_memory() -> bool:
+        """Clear system memory (page cache, dentries, and inodes)."""
+        try:
+            # Sync to ensure data is written to disk
+            subprocess.run("sync", shell=True, check=True)
+            # Drop caches
+            # Note: This requires root privileges
+            subprocess.run("echo 3 > /proc/sys/vm/drop_caches", shell=True, check=True)
+            return True
+        except subprocess.CalledProcessError:
+            return False
+        except Exception:
+            return False

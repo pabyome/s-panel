@@ -25,3 +25,13 @@
     - View to list Docker networks.
 - Created `frontend/src/views/docker/Volumes.vue`:
     - View to list Docker volumes.
+
+## System
+- Modified `backend/app/services/system_monitor.py`:
+    - Added `clear_system_memory` method to clear page cache, dentries, and inodes.
+- Modified `backend/app/api/v1/system.py`:
+    - Added `POST /memory/clear` endpoint.
+- Modified `frontend/src/views/Monitor.vue`:
+    - Added "Clear Cache" button and confirmation modal.
+- Created `backend/tests/test_memory_clear.py`:
+    - Tests for memory clearing logic and API.
