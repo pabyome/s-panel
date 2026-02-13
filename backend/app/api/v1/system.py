@@ -194,6 +194,15 @@ def save_smtp_settings(settings: SMTPSettings, session: SessionDep, current_user
 from app.services.system_monitor import SystemMonitor
 
 
+@router.post("/memory/clear")
+def clear_memory(current_user: CurrentUser):
+    """Clear system memory (page cache, dentries, and inodes)."""
+    success = SystemMonitor.clear_system_memory()
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to clear system memory")
+    return {"message": "System memory cleared successfully"}
+
+
 @router.get("/ports/check/{port}")
 def check_port(port: int, current_user: CurrentUser):
     """Check if a specific port is available or in use."""
