@@ -6,7 +6,9 @@ import tempfile
 from app.api.deps import SessionDep, CurrentUser
 from app.schemas.website import WebsiteCreate, WebsiteRead, WebsiteUpdate, NginxConfigUpdate
 from app.models.website import Website
+from app.models.deployment import DeploymentConfig
 from app.services.website_manager import WebsiteManager
+from app.services.laravel_service import LaravelService
 
 from app.services.nginx_manager import NginxManager
 
@@ -260,3 +262,39 @@ def enable_ssl(website_id: int, email: str, session: SessionDep, current_user: C
     if not success:
         raise HTTPException(status_code=400, detail="Failed to enable SSL. Check domains or server logs.")
     return {"ok": True}
+
+
+@router.post("/{website_id}/artisan")
+def run_artisan(website_id: int, command: str, session: SessionDep, current_user: CurrentUser):
+    website = session.get(Website, website_id)
+    if not website:
+        raise HTTPException(status_code=404, detail="Website not found")
+    if not website.is_laravel:
+        raise HTTPException(status_code=400, detail="Not a Laravel site")
+    if not website.deployment_id:
+        raise HTTPException(status_code=400, detail="No deployment config linked")
+
+    deployment = session.get(DeploymentConfig, website.deployment_id)
+    if not deployment:
+        raise HTTPException(status_code=404, detail="Deployment config not found")
+
+    success, output = LaravelService.run_artisan(deployment, command)
+    return {"success": success, "output": output}
+
+
+@router.get("/{website_id}/stack")
+def get_stack_status(website_id: int, session: SessionDep, current_user: CurrentUser):
+    website = session.get(Website, website_id)
+    if not website:
+        raise HTTPException(status_code=404, detail="Website not found")
+    if not website.is_laravel:
+        raise HTTPException(status_code=400, detail="Not a Laravel site")
+    if not website.deployment_id:
+        # Return empty/default status if no deployment yet
+        return {"web": {"replicas": 0, "status": "unknown"}, "worker": {"replicas": 0}, "scheduler": {"replicas": 0}}
+
+    deployment = session.get(DeploymentConfig, website.deployment_id)
+    if not deployment:
+         return {"web": {"replicas": 0, "status": "unknown"}, "worker": {"replicas": 0}, "scheduler": {"replicas": 0}}
+
+    return LaravelService.get_stack_status(deployment)

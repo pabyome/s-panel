@@ -12,9 +12,11 @@ from datetime import datetime
 
 from app.models.database import engine
 from app.models.deployment import DeploymentConfig, DeploymentCreate, DeploymentRead, DeploymentUpdate
+from app.models.deployment_history import DeploymentHistory
 from app.api.deps import CurrentUser, get_session, SessionDep
 from app.core.config import settings
 from app.services.git_service import GitService
+from app.services.laravel_service import LaravelService
 from app.services.supervisor_manager import SupervisorManager
 from app.services.email_service import EmailService
 import jwt
@@ -33,6 +35,9 @@ deployment_connections: Dict[str, Set[WebSocket]] = {}
 class DeploymentWebhookInfo(SQLModel):
     webhook_url: str
     secret: str
+
+class RollbackRequest(SQLModel):
+    history_id: uuid.UUID
 
 @router.get("/{deployment_id}/webhook-info", response_model=DeploymentWebhookInfo)
 def get_deployment_webhook_info(deployment_id: uuid.UUID, session: SessionDep, current_user: CurrentUser):
@@ -251,7 +256,121 @@ def delete_deployment(
     return {"ok": True}
 
 
+@router.get("/{deployment_id}/history", response_model=List[DeploymentHistory])
+def get_deployment_history(
+    deployment_id: uuid.UUID,
+    session: SessionDep,
+    current_user: CurrentUser = None,
+):
+    deployment = session.get(DeploymentConfig, deployment_id)
+    if not deployment:
+         raise HTTPException(status_code=404, detail="Deployment not found")
+
+    statement = select(DeploymentHistory).where(DeploymentHistory.deployment_id == deployment_id).order_by(DeploymentHistory.deployed_at.desc())
+    return session.exec(statement).all()
+
+
+@router.post("/{deployment_id}/rollback")
+async def trigger_rollback(
+    deployment_id: uuid.UUID,
+    request: RollbackRequest,
+    background_tasks: BackgroundTasks,
+    session: SessionDep,
+    current_user: CurrentUser = None,
+):
+    deployment = session.get(DeploymentConfig, deployment_id)
+    if not deployment:
+        raise HTTPException(status_code=404, detail="Deployment not found")
+
+    history = session.get(DeploymentHistory, request.history_id)
+    if not history:
+        raise HTTPException(status_code=404, detail="History record not found")
+
+    if not history.image_tag:
+        raise HTTPException(status_code=400, detail="Cannot rollback: No image tag saved for this deployment")
+
+    # Trigger background task
+    background_tasks.add_task(handle_rollback_background, deployment_id, history.image_tag)
+    return {"status": "rollback_queued", "message": f"Rolling back to {history.image_tag}"}
+
+
 # --- Webhook Handler (No Auth Required, verification via Signature) ---
+
+
+async def handle_rollback_background(deployment_id: uuid.UUID, image_tag: str):
+    """Background task to handle rollback."""
+    deployment_id_str = str(deployment_id)
+
+    with Session(engine) as session:
+        deployment = session.get(DeploymentConfig, deployment_id)
+        if not deployment:
+            return
+
+        logger.info(f"Starting rollback for {deployment.name} to {image_tag}")
+
+        deployment.last_status = "running"
+        deployment.last_logs = f"Starting rollback to {image_tag}...\n"
+        session.add(deployment)
+        session.commit()
+
+        # Broadcast initial status
+        try:
+            asyncio.create_task(broadcast_deployment_update(deployment_id_str, deployment.last_logs, "running"))
+        except:
+            pass
+
+        try:
+            loop = asyncio.get_running_loop()
+
+            async def update_logs(current_logs):
+                deployment.last_logs = current_logs
+                session.add(deployment)
+                session.commit()
+                try:
+                    await broadcast_deployment_update(deployment_id_str, current_logs, "running")
+                except:
+                    pass
+
+            # Wrap sync callback
+            def sync_update_logs(current_logs):
+                try:
+                    asyncio.run_coroutine_threadsafe(update_logs(current_logs), loop)
+                except Exception:
+                    pass
+
+            # Call LaravelService rollback
+            if deployment.is_laravel:
+                 success, logs = await LaravelService.rollback(deployment, image_tag, log_callback=sync_update_logs)
+            else:
+                 # Standard swarm rollback?
+                 # Currently only LaravelService has explicit rollback logic implemented in this task.
+                 # We can fallback or just say not supported.
+                 logs = "Rollback only supported for Laravel deployments currently."
+                 success = False
+                 sync_update_logs(logs)
+
+            final_status = "success" if success else "failed"
+            deployment.last_status = final_status
+            deployment.last_deployed_at = datetime.utcnow()
+            deployment.last_logs = logs
+            session.add(deployment)
+            session.commit()
+
+            try:
+                asyncio.create_task(broadcast_deployment_update(deployment_id_str, logs, final_status))
+            except:
+                pass
+
+        except Exception as e:
+            logger.exception(f"Rollback failed: {e}")
+            deployment.last_status = "failed"
+            deployment.last_logs = f"Rollback exception: {e}"
+            session.add(deployment)
+            session.commit()
+            try:
+                asyncio.create_task(broadcast_deployment_update(deployment_id_str, deployment.last_logs, "failed"))
+            except:
+                pass
 
 
 async def handle_deploy_background(deployment_id: uuid.UUID):
@@ -300,7 +419,14 @@ async def handle_deploy_background(deployment_id: uuid.UUID):
                 except Exception:
                     pass
 
-            if deployment.deployment_mode == "docker-swarm":
+            image_tag = None
+            if deployment.is_laravel:
+                 # Dispatch to Laravel Service (async native)
+                 success, logs, commit_hash, image_tag = await LaravelService.deploy(
+                     deployment,
+                     log_callback=sync_update_logs
+                 )
+            elif deployment.deployment_mode == "docker-swarm":
                 success, logs, commit_hash = await loop.run_in_executor(
                     None,
                     lambda: GitService.deploy_swarm(
@@ -336,6 +462,18 @@ async def handle_deploy_background(deployment_id: uuid.UUID):
             deployment.deploy_count = (deployment.deploy_count or 0) + 1
             session.add(deployment)
             session.commit()
+
+            # Save History
+            if success:
+                history = DeploymentHistory(
+                    deployment_id=deployment.id,
+                    commit_hash=commit_hash,
+                    image_tag=image_tag, # captured from LaravelService
+                    status="success",
+                    logs=logs
+                )
+                session.add(history)
+                session.commit()
 
             # Broadcast final status
             try:

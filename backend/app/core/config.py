@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     REDIS_PASS: str | None = None
     REDIS_DB: int = 0
 
+    # Docker Registry
+    DOCKER_REGISTRY: str = "127.0.0.1:5001"
+
     model_config = SettingsConfigDict(env_file=".env")
 
 settings = Settings()
