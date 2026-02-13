@@ -195,8 +195,10 @@
           </div>
         </div>
 
-        <div class="p-6">
-          <form @submit.prevent="selectedWebsite?.id ? updateWebsite() : handleSubmit()" class="space-y-6">
+        <div class="p-6 h-full flex flex-col">
+          <LaravelDashboard v-if="selectedWebsite?.is_laravel && !isEditing" :website="selectedWebsite" />
+
+          <form v-else @submit.prevent="selectedWebsite?.id ? updateWebsite() : handleSubmit()" class="space-y-6">
             <!-- Name & Domain -->
             <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <div>
@@ -289,8 +291,36 @@
               </div>
             </div>
 
+            <!-- Laravel Toggle -->
+            <div v-if="!form.is_static" class="rounded-xl bg-gray-50 p-4 ring-1 ring-inset ring-gray-200">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                  <div class="rounded-lg p-2 bg-red-100 text-red-600">
+                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p class="text-sm font-medium text-gray-900">Laravel Application</p>
+                    <p class="text-xs text-gray-500">Enable Stack View, Zero-Downtime Deployment, and Artisan Tools</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  :disabled="selectedWebsite?.id && !isEditing"
+                  @click="form.is_laravel = !form.is_laravel"
+                  :class="[
+                    form.is_laravel ? 'bg-red-600' : 'bg-gray-200',
+                    'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed'
+                  ]"
+                >
+                  <span :class="[form.is_laravel ? 'translate-x-5' : 'translate-x-0', 'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out']"></span>
+                </button>
+              </div>
+            </div>
+
             <!-- Actions -->
-            <div class="pt-5 border-t border-gray-100 flex items-center justify-end gap-3">
+            <div v-if="!selectedWebsite?.is_laravel || isEditing" class="pt-5 border-t border-gray-100 flex items-center justify-end gap-3">
               <!-- Create mode -->
               <template v-if="!selectedWebsite?.id">
                 <button
@@ -382,6 +412,7 @@ import PathInput from '../components/PathInput.vue'
 import SSLManager from '../components/SSLManager.vue'
 import ManageWebsiteModal from '../components/ManageWebsiteModal.vue'
 import ConfirmModal from '../components/ConfirmModal.vue'
+import LaravelDashboard from './laravel/LaravelDashboard.vue'
 import { useToast } from '../composables/useToast'
 
 const toast = useToast()
@@ -402,7 +433,8 @@ const form = reactive({
     domain: '',
     port: 3000,
     project_path: '',
-    is_static: false
+    is_static: false,
+    is_laravel: false
 })
 
 const fetchNginxInfo = async () => {
@@ -435,6 +467,7 @@ const selectWebsite = (site) => {
     form.port = site.port
     form.project_path = site.project_path || '' // Handle missing path
     form.is_static = site.is_static || false
+    form.is_laravel = site.is_laravel || false
 }
 
 const startEditing = () => {
@@ -450,6 +483,7 @@ const cancelEditing = () => {
         form.port = selectedWebsite.value.port
         form.project_path = selectedWebsite.value.project_path || ''
         form.is_static = selectedWebsite.value.is_static || false
+        form.is_laravel = selectedWebsite.value.is_laravel || false
     }
 }
 
@@ -461,6 +495,7 @@ const resetForm = () => {
     form.port = 3000
     form.project_path = ''
     form.is_static = false
+    form.is_laravel = false
 }
 
 const handleSubmit = async () => {
@@ -487,7 +522,8 @@ const updateWebsite = async () => {
             name: form.name,
             port: form.port,
             project_path: form.project_path,
-            is_static: form.is_static
+            is_static: form.is_static,
+            is_laravel: form.is_laravel
         }
         const { data } = await axios.put(`/api/v1/websites/${selectedWebsite.value.id}`, updateData)
         toast.success('Website updated successfully')
