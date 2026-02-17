@@ -483,6 +483,38 @@
                  </p>
                </div>
              </div>
+
+             <!-- Laravel Options -->
+             <div class="pt-2 border-t border-gray-200">
+                <div class="flex items-center justify-between">
+                    <label class="block text-sm font-medium text-gray-700">Laravel Application</label>
+                    <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                        <input type="checkbox" v-model="editForm.is_laravel" class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer border-gray-300 checked:right-0 checked:border-violet-600"/>
+                        <label class="toggle-label block overflow-hidden h-5 rounded-full bg-gray-300 cursor-pointer"></label>
+                    </div>
+                </div>
+
+                <div v-if="editForm.is_laravel" class="mt-4 space-y-4 pl-4 border-l-2 border-violet-100">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Worker Replicas</label>
+                        <input
+                            type="number"
+                            v-model.number="editForm.laravel_worker_replicas"
+                            min="0"
+                            class="block w-full rounded-xl border-0 py-2.5 px-4 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-violet-500 sm:text-sm"
+                        >
+                        <p class="mt-1 text-xs text-gray-500">Number of queue worker containers.</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <input type="checkbox" v-model="editForm.laravel_scheduler_enabled" class="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500">
+                        <label class="text-sm text-gray-700">Enable Scheduler (Cron)</label>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <input type="checkbox" v-model="editForm.laravel_horizon_enabled" class="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500">
+                        <label class="text-sm text-gray-700">Enable Horizon</label>
+                    </div>
+                </div>
+             </div>
           </div>
         </div>
 
@@ -683,13 +715,40 @@
                  <ul class="list-disc list-inside space-y-0.5 ml-1">
                    <li>Handles Build → Push → Deploy automatically.</li>
                    <li>Maps <code>localhost</code> to host machine (DB/Redis access).</li>
-                   <li>Auto-mounts <code>.json/.pem</code> credentials from repo root.</li>
                  </ul>
-                 <p class="mt-2 text-xs leading-relaxed border-t border-blue-200 pt-2">
-                   <strong>Complete Docker Setup?</strong> If using containers (DB, Redis), ensure they map ports to the host (e.g. <code>-p 5432:5432</code>).
-                   Then <code>DB_HOST=localhost</code> works correctly.
-                 </p>
                </div>
+             </div>
+
+             <!-- Laravel Options -->
+             <div class="pt-2 border-t border-gray-200">
+                <div class="flex items-center justify-between">
+                    <label class="block text-sm font-medium text-gray-700">Laravel Application</label>
+                    <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                        <input type="checkbox" v-model="form.is_laravel" class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer border-gray-300 checked:right-0 checked:border-violet-600"/>
+                        <label class="toggle-label block overflow-hidden h-5 rounded-full bg-gray-300 cursor-pointer"></label>
+                    </div>
+                </div>
+
+                <div v-if="form.is_laravel" class="mt-4 space-y-4 pl-4 border-l-2 border-violet-100">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Worker Replicas</label>
+                        <input
+                            type="number"
+                            v-model.number="form.laravel_worker_replicas"
+                            min="0"
+                            class="block w-full rounded-xl border-0 py-2.5 px-4 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-violet-500 sm:text-sm"
+                        >
+                        <p class="mt-1 text-xs text-gray-500">Number of queue worker containers.</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <input type="checkbox" v-model="form.laravel_scheduler_enabled" class="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500">
+                        <label class="text-sm text-gray-700">Enable Scheduler (Cron)</label>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <input type="checkbox" v-model="form.laravel_horizon_enabled" class="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500">
+                        <label class="text-sm text-gray-700">Enable Horizon</label>
+                    </div>
+                </div>
              </div>
           </div>
         </div>
@@ -856,7 +915,11 @@ const form = reactive({
     mode: 'supervisor', // 'supervisor' or 'docker-swarm'
     swarm_replicas: 2,
     current_port: 3000,
-    dockerfile_path: 'Dockerfile'
+    dockerfile_path: 'Dockerfile',
+    is_laravel: false,
+    laravel_worker_replicas: 1,
+    laravel_scheduler_enabled: false,
+    laravel_horizon_enabled: false
 })
 
 const editForm = reactive({
@@ -870,7 +933,11 @@ const editForm = reactive({
     mode: 'supervisor',
     swarm_replicas: 2,
     current_port: 3000,
-    dockerfile_path: 'Dockerfile'
+    dockerfile_path: 'Dockerfile',
+    is_laravel: false,
+    laravel_worker_replicas: 1,
+    laravel_scheduler_enabled: false,
+    laravel_horizon_enabled: false
 })
 
 const totalDeploys = computed(() => {
@@ -991,7 +1058,11 @@ const createDeployment = async () => {
             supervisor_process: form.supervisor_process || null,
             post_deploy_command: form.post_deploy_command || null,
             run_as_user: form.run_as_user || 'root',
-            notification_emails: form.notification_emails || null
+            notification_emails: form.notification_emails || null,
+            is_laravel: form.is_laravel,
+            laravel_worker_replicas: form.laravel_worker_replicas,
+            laravel_scheduler_enabled: form.laravel_scheduler_enabled,
+            laravel_horizon_enabled: form.laravel_horizon_enabled
         })
         toast.success('Deployment created successfully')
         isModalOpen.value = false
@@ -1019,6 +1090,12 @@ const openEditModal = (deploy) => {
     editForm.current_port = deploy.current_port || 3000
     editForm.dockerfile_path = deploy.dockerfile_path || 'Dockerfile'
 
+    // Laravel Fields
+    editForm.is_laravel = deploy.is_laravel || false
+    editForm.laravel_worker_replicas = deploy.laravel_worker_replicas || 1
+    editForm.laravel_scheduler_enabled = deploy.laravel_scheduler_enabled || false
+    editForm.laravel_horizon_enabled = deploy.laravel_horizon_enabled || false
+
     editingDeployId.value = deploy.id
     fetchProcesses()
     isEditModalOpen.value = true
@@ -1034,7 +1111,11 @@ const updateDeployment = async () => {
             supervisor_process: editForm.supervisor_process || null,
             post_deploy_command: editForm.post_deploy_command || null,
             run_as_user: editForm.run_as_user || 'root',
-            notification_emails: editForm.notification_emails || null
+            notification_emails: editForm.notification_emails || null,
+            is_laravel: editForm.is_laravel,
+            laravel_worker_replicas: editForm.laravel_worker_replicas,
+            laravel_scheduler_enabled: editForm.laravel_scheduler_enabled,
+            laravel_horizon_enabled: editForm.laravel_horizon_enabled
         })
         toast.success('Deployment updated successfully')
         isEditModalOpen.value = false
