@@ -79,6 +79,30 @@ def run_migrations():
                 # SQLite ALTER TABLE support for REFERENCES is limited/complex. simple integer is safer for migration.
                 add_column_safe(cursor, "website", "owner_id INTEGER")
 
+            if "is_laravel" not in website_columns:
+                add_column_safe(cursor, "website", "is_laravel BOOLEAN DEFAULT 0")
+
+            if "deployment_id" not in website_columns:
+                add_column_safe(cursor, "website", "deployment_id CHAR(36)")
+
+        # --- Migration 003: Laravel Deployment Config ---
+        # Fetch columns again for DeploymentConfig as we might have modified it in 001
+        cursor.execute("PRAGMA table_info(deploymentconfig)")
+        dep_columns = [col[1] for col in cursor.fetchall()]
+
+        if "id" in dep_columns:
+            if "is_laravel" not in dep_columns:
+                add_column_safe(cursor, "deploymentconfig", "is_laravel BOOLEAN DEFAULT 0")
+
+            if "laravel_worker_replicas" not in dep_columns:
+                add_column_safe(cursor, "deploymentconfig", "laravel_worker_replicas INTEGER DEFAULT 1")
+
+            if "laravel_scheduler_enabled" not in dep_columns:
+                add_column_safe(cursor, "deploymentconfig", "laravel_scheduler_enabled BOOLEAN DEFAULT 0")
+
+            if "laravel_horizon_enabled" not in dep_columns:
+                add_column_safe(cursor, "deploymentconfig", "laravel_horizon_enabled BOOLEAN DEFAULT 0")
+
         conn.commit()
         logger.info("Database migrations completed.")
 

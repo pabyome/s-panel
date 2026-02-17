@@ -2,6 +2,7 @@ from sqlmodel import SQLModel
 from typing import Optional
 from pydantic import field_validator, model_validator
 import re
+import uuid
 
 
 class WebsiteCreate(SQLModel):
@@ -10,6 +11,8 @@ class WebsiteCreate(SQLModel):
     port: int  # Required for all sites - Nginx listens on this port
     project_path: str
     is_static: bool = False  # True for static HTML sites
+    is_laravel: bool = False
+    deployment_id: Optional[uuid.UUID] = None
 
     @field_validator("domain")
     @classmethod
@@ -40,6 +43,8 @@ class WebsiteRead(SQLModel):
     project_path: str
     ssl_enabled: bool
     is_static: bool
+    is_laravel: bool
+    deployment_id: Optional[uuid.UUID]
     status: str
 
 
@@ -50,6 +55,8 @@ class WebsiteUpdate(SQLModel):
     port: Optional[int] = None
     project_path: Optional[str] = None
     is_static: Optional[bool] = None
+    is_laravel: Optional[bool] = None
+    deployment_id: Optional[uuid.UUID] = None
 
     @field_validator("port")
     @classmethod
