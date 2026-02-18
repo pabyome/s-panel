@@ -2,6 +2,7 @@ from crontab import CronTab
 import uuid
 from typing import List, Dict, Optional
 
+
 class CronManager:
     # We manage the ROOT crontab (or the user running the panel)
 
@@ -31,14 +32,16 @@ class CronManager:
                 else:
                     job_id = raw_id.strip()
 
-            jobs.append({
-                "id": job_id, # Might be None if not created by us
-                "command": job.command,
-                "schedule": str(job.slices), # e.g. "* * * * *"
-                "comment": comment,
-                "enabled": job.is_enabled(),
-                "user": user or "root" # approximate
-            })
+            jobs.append(
+                {
+                    "id": job_id,  # Might be None if not created by us
+                    "command": job.command,
+                    "schedule": str(job.slices),  # e.g. "* * * * *"
+                    "comment": comment,
+                    "enabled": job.is_enabled(),
+                    "user": user or "root",  # approximate
+                }
+            )
         return jobs
 
     @staticmethod
@@ -49,23 +52,17 @@ class CronManager:
         job_id = str(uuid.uuid4())
         full_comment = f"spanel-id:{job_id}"
         if comment:
-             full_comment += f" | {comment}"
+            full_comment += f" | {comment}"
 
         job = cron.new(command=command, comment=full_comment)
         job.setall(schedule)
 
         if not job.is_valid():
-             return {"error": "Invalid schedule"}
+            return {"error": "Invalid schedule"}
 
         cron.write()
 
-        return {
-            "id": job_id,
-            "command": command,
-            "schedule": schedule,
-            "comment": full_comment,
-            "user": user
-        }
+        return {"id": job_id, "command": command, "schedule": schedule, "comment": full_comment, "user": user}
 
     @staticmethod
     def delete_job(job_id: str, user: str = "root") -> bool:
@@ -91,11 +88,52 @@ class CronManager:
         return False
 
     @staticmethod
+    def ensure_job(job_id: str, command: str, schedule: str, comment: str = "", user: str = "root") -> Dict[str, str]:
+        cron = CronManager._get_cron(user)
+        existing_job = None
+
+        full_comment_prefix = f"spanel-id:{job_id}"
+
+        for job in cron:
+            if job.comment and job.comment.startswith(full_comment_prefix):
+                existing_job = job
+                break
+
+        full_comment = f"{full_comment_prefix} | {comment}" if comment else full_comment_prefix
+
+        if existing_job:
+            # Update only if changed
+            # Note: slices comparison might be tricky (string representation).
+            # But let's just set it to be safe.
+            updated = False
+            if existing_job.command != command:
+                existing_job.set_command(command)
+                updated = True
+
+            if str(existing_job.slices) != schedule:
+                existing_job.setall(schedule)
+                updated = True
+
+            if existing_job.comment != full_comment:
+                existing_job.set_comment(full_comment)
+                updated = True
+
+            if updated:
+                cron.write()
+
+            return {"id": job_id, "command": command, "schedule": schedule, "comment": full_comment, "user": user}
+        else:
+            job = cron.new(command=command, comment=full_comment)
+            job.setall(schedule)
+            cron.write()
+            return {"id": job_id, "command": command, "schedule": schedule, "comment": full_comment, "user": user}
+
+    @staticmethod
     def update_job(job_id: str, command: str = None, schedule: str = None, user: str = "root") -> bool:
         cron = CronManager._get_cron(user)
         found = False
         for job in cron:
-             if job.comment and f"spanel-id:{job_id}" in job.comment:
+            if job.comment and f"spanel-id:{job_id}" in job.comment:
                 if command:
                     job.set_command(command)
                 if schedule:
