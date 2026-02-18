@@ -750,6 +750,34 @@
                     </div>
                 </div>
              </div>
+
+             <!-- Website Domain Link Options -->
+             <div class="pt-2 border-t border-gray-200">
+                <div class="flex items-center justify-between">
+                    <label class="block text-sm font-medium text-gray-700">Link Domain / SSL</label>
+                    <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                        <input type="checkbox" v-model="form.website_domain" :true-value="form.website_domain || ' '" :false-value="''" class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer border-gray-300 checked:right-0 checked:border-violet-600"/>
+                        <label class="toggle-label block overflow-hidden h-5 rounded-full bg-gray-300 cursor-pointer"></label>
+                    </div>
+                </div>
+
+                <div v-if="form.website_domain" class="mt-4 space-y-4 pl-4 border-l-2 border-violet-100">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Domain Name</label>
+                        <input
+                            type="text"
+                            v-model="form.website_domain"
+                            placeholder="app.example.com"
+                            class="block w-full rounded-xl border-0 py-2.5 px-4 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-violet-500 sm:text-sm"
+                        >
+                        <p class="mt-1 text-xs text-gray-500">Auto-creates a Proxy Website pointing to the App Port.</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <input type="checkbox" v-model="form.website_ssl" class="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500">
+                        <label class="text-sm text-gray-700">Enable SSL (Let's Encrypt)</label>
+                    </div>
+                </div>
+             </div>
           </div>
         </div>
 
@@ -919,7 +947,10 @@ const form = reactive({
     is_laravel: false,
     laravel_worker_replicas: 1,
     laravel_scheduler_enabled: false,
-    laravel_horizon_enabled: false
+    laravel_scheduler_enabled: false,
+    laravel_horizon_enabled: false,
+    website_domain: '',
+    website_ssl: false
 })
 
 const editForm = reactive({
@@ -1062,7 +1093,9 @@ const createDeployment = async () => {
             is_laravel: form.is_laravel,
             laravel_worker_replicas: form.laravel_worker_replicas,
             laravel_scheduler_enabled: form.laravel_scheduler_enabled,
-            laravel_horizon_enabled: form.laravel_horizon_enabled
+            laravel_horizon_enabled: form.laravel_horizon_enabled,
+            website_domain: form.website_domain || null,
+            website_ssl: form.website_ssl
         })
         toast.success('Deployment created successfully')
         isModalOpen.value = false

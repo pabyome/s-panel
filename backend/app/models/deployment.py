@@ -51,7 +51,12 @@ class DeploymentCreate(SQLModel):
     is_laravel: bool = False
     laravel_worker_replicas: int = 1
     laravel_scheduler_enabled: bool = False
+    laravel_scheduler_enabled: bool = False
     laravel_horizon_enabled: bool = False
+
+    # Automated Website Creation
+    website_domain: Optional[str] = None
+    website_ssl: bool = False
 
 
 class DeploymentUpdate(SQLModel):

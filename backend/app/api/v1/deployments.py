@@ -24,6 +24,8 @@ from pydantic import ValidationError
 from fastapi import Query
 from app.core.security import ALGORITHM, SECRET_KEY
 from app.schemas.token import TokenPayload
+from app.services.website_manager import WebsiteManager
+from app.schemas.website import WebsiteCreate
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -149,6 +151,30 @@ def create_deployment(
 
     db_obj_read = DeploymentRead.model_validate(db_obj)
     db_obj_read.webhook_url = f"{settings.API_V1_STR}/deployments/webhook/{db_obj.id}"
+
+    # Automated Website Creation
+    if deployment_data.website_domain:
+        try:
+            website_manager = WebsiteManager(session)
+            website_data = WebsiteCreate(
+                name=deployment_data.name,
+                domain=deployment_data.website_domain,
+                port=deployment_data.current_port,
+                project_path=deployment_data.project_path,  # Use deployment path
+                is_static=False,
+                is_laravel=deployment_data.is_laravel,
+                deployment_id=db_obj.id,
+                owner_id=current_user.id if current_user else None
+            )
+            created_website = website_manager.create_website(website_data)
+
+            if created_website and deployment_data.website_ssl and current_user and current_user.email:
+                website_manager.enable_ssl(created_website.id, current_user.email)
+
+        except Exception as e:
+            logger.error(f"Failed to auto-create website for deployment {db_obj.id}: {e}")
+            # We don't fail the deployment creation, just log the error
+
     return db_obj_read
 
 
