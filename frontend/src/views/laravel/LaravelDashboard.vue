@@ -106,7 +106,10 @@ const createDeployment = async () => {
             branch: 'main',
             is_laravel: true,
             laravel_worker_replicas: 1,
-            laravel_scheduler_enabled: true
+            laravel_scheduler_enabled: true,
+            mode: 'swarm',
+            port: props.website.port,
+            dockerfile_path: 'Dockerfile'
         })
 
         // Link to website
