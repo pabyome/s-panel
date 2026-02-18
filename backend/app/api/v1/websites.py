@@ -3,9 +3,11 @@ from typing import List
 import os
 import subprocess
 import tempfile
+from sqlmodel import select
 from app.api.deps import SessionDep, CurrentUser
 from app.schemas.website import WebsiteCreate, WebsiteRead, WebsiteUpdate, NginxConfigUpdate
 from app.models.website import Website
+from app.models.waf import WafConfig
 from app.models.deployment import DeploymentConfig
 from app.services.website_manager import WebsiteManager
 from app.services.laravel_service import LaravelService
@@ -222,8 +224,14 @@ def update_website(website_id: int, update_data: WebsiteUpdate, session: Session
     )
 
     if needs_nginx_update:
+        waf_config = session.exec(select(WafConfig).where(WafConfig.website_id == website.id)).first()
         new_config = NginxManager.generate_config(
-            website.domain, website.port, is_static=website.is_static, project_path=website.project_path
+            website.domain,
+            website.port,
+            is_static=website.is_static,
+            project_path=website.project_path,
+            waf_config=waf_config,
+            ssl_enabled=website.ssl_enabled,
         )
         config_path = f"/etc/nginx/sites-available/{website.domain}"
         try:
