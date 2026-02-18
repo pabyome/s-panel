@@ -142,9 +142,18 @@ class LaravelService:
         # or attach to the specific app network.
 
         # Network: 'app-net' is used in GitService.deploy_swarm. We should probably use that.
-        # But for 'migrations', if the DB is in the swarm or on host, we need connectivity.
-        # If DB is external (managed), it's fine.
-        # If DB is on host (127.0.0.1), inside container 'host.docker.internal' is needed.
+        # Ensure 'app-net' exists before running container attached to it.
+        try:
+             # Check if network exists
+             subprocess.run(["docker", "network", "inspect", "app-net"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except subprocess.CalledProcessError:
+             log("  ! Network 'app-net' not found. Creating it...")
+             try:
+                 subprocess.run(["docker", "network", "create", "--driver", "overlay", "--attachable", "app-net"], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                 log("  ✓ Network 'app-net' created.")
+             except subprocess.CalledProcessError as e:
+                 log(f"  ✗ Failed to create network: {e}")
+                 return False, "\n".join(logs), commit_hash, image_tag
 
         migration_cmd = ["php", "artisan", "migrate", "--force"]
 
