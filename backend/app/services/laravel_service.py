@@ -419,7 +419,7 @@ class LaravelService:
             "restart_policy": {"condition": "on-failure", "delay": "5s", "max_attempts": 3}
         }
         # Explicitly force FrankenPHP to listen on the correct port and bind to all interfaces (IPv4/IPv6)
-        services["web"]["command"] = ["frankenphp", "php-server", "--listen", f":{deployment.current_port}"]
+        services["web"]["command"] = ["frankenphp", "php-server", "--listen", f"0.0.0.0:{deployment.current_port}"]
 
         services["web"]["ports"] = [f"{deployment.current_port}:{deployment.current_port}"]
         # Use wget for healthcheck (more robust than php fsockopen for network resolution in Alpine)
@@ -503,7 +503,7 @@ class LaravelService:
         env_vars["APP_PORT"] = str(port)
         # FrankenPHP needs SERVER_NAME to listen on correct port.
         # We explicitly use http:// scheme to avoid auto-https behavior and bind to correct port.
-        env_vars["SERVER_NAME"] = f"http://:{port}"
+        env_vars["SERVER_NAME"] = f"http://0.0.0.0:{port}"
         return env_vars
 
     @staticmethod

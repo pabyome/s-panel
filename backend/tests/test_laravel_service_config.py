@@ -70,10 +70,10 @@ class TestLaravelServiceConfig:
 
     def test_server_name_uses_http_scheme(self):
         """
-        Verify SERVER_NAME env var uses http:// scheme.
+        Verify SERVER_NAME env var uses http:// scheme and explicit 0.0.0.0 binding.
         """
         deployment = DeploymentConfig(
             id=1, name="Test", repo_url="", branch="main", current_port=9000, project_path="/tmp", status="deployed"
         )
         env_vars = LaravelService._get_env_vars("/tmp", 9000)
-        assert env_vars["SERVER_NAME"] == "http://:9000"
+        assert env_vars["SERVER_NAME"] == "http://0.0.0.0:9000"
