@@ -42,7 +42,6 @@ class DeploymentCreate(SQLModel):
     supervisor_process: Optional[str] = None
     post_deploy_command: Optional[str] = None
     run_as_user: Optional[str] = "root"
-    run_as_user: Optional[str] = "root"
     notification_emails: Optional[str] = None
     deployment_mode: str = "supervisor"
     swarm_replicas: int = 2
@@ -50,7 +49,6 @@ class DeploymentCreate(SQLModel):
     dockerfile_path: Optional[str] = "Dockerfile"
     is_laravel: bool = False
     laravel_worker_replicas: int = 1
-    laravel_scheduler_enabled: bool = False
     laravel_scheduler_enabled: bool = False
     laravel_horizon_enabled: bool = False
 
@@ -68,7 +66,6 @@ class DeploymentUpdate(SQLModel):
     supervisor_process: Optional[str] = None
     post_deploy_command: Optional[str] = None
     run_as_user: Optional[str] = None
-    run_as_user: Optional[str] = None
     notification_emails: Optional[str] = None
     deployment_mode: Optional[str] = None
     swarm_replicas: Optional[int] = None
@@ -78,6 +75,10 @@ class DeploymentUpdate(SQLModel):
     laravel_worker_replicas: Optional[int] = None
     laravel_scheduler_enabled: Optional[bool] = None
     laravel_horizon_enabled: Optional[bool] = None
+
+    # Website Linking
+    website_domain: Optional[str] = None
+    website_ssl: Optional[bool] = None
 
 
 class DeploymentRead(SQLModel):
@@ -109,3 +110,7 @@ class DeploymentRead(SQLModel):
     created_at: Optional[datetime] = None
     # secret: str  # Excluded from default read for security
     webhook_url: str = ""  # Calculated field
+
+    # Website Linking
+    website_domain: Optional[str] = None
+    website_ssl: bool = False
