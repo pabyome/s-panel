@@ -107,8 +107,8 @@ const createDeployment = async () => {
             is_laravel: true,
             laravel_worker_replicas: 1,
             laravel_scheduler_enabled: true,
-            mode: 'swarm',
-            port: props.website.port,
+            deployment_mode: 'docker-swarm',
+            current_port: props.website.port,
             dockerfile_path: 'Dockerfile'
         })
 
