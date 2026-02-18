@@ -489,6 +489,8 @@ class LaravelService:
 
         env_vars["PORT"] = str(port)
         env_vars["APP_PORT"] = str(port)
+        # FrankenPHP needs SERVER_NAME to listen on correct port
+        env_vars["SERVER_NAME"] = f":{port}"
         return env_vars
 
     @staticmethod
