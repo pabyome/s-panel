@@ -418,6 +418,8 @@ class LaravelService:
             "rollback_config": {"parallelism": 1, "delay": "10s"},
             "restart_policy": {"condition": "on-failure", "delay": "5s", "max_attempts": 3}
         }
+        # Explicitly force FrankenPHP to listen on the correct port
+        services["web"]["command"] = ["frankenphp", "php-server", "--listen", f":{deployment.current_port}"]
         services["web"]["ports"] = [f"{deployment.current_port}:{deployment.current_port}"]
 
         # 2. Worker Service (Queue)
