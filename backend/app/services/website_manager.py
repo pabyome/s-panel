@@ -67,4 +67,17 @@ class WebsiteManager:
             self.session.add(website)
             self.session.commit()
 
+            # Ensure renewal cron exists
+            try:
+                from app.services.cron_manager import CronManager
+
+                CronManager.ensure_job(
+                    job_id="ssl-auto-renew",
+                    command='certbot renew --quiet --deploy-hook "nginx -s reload"',
+                    schedule="0 3 * * *",
+                    comment="Global SSL Auto-Renewal",
+                )
+            except Exception as e:
+                print(f"Failed to setup SSL renewal cron: {e}")
+
         return success
