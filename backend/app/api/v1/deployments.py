@@ -26,6 +26,7 @@ from app.core.security import ALGORITHM, SECRET_KEY
 from app.schemas.token import TokenPayload
 from app.services.website_manager import WebsiteManager
 from app.schemas.website import WebsiteCreate
+from app.models.website import Website
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -47,18 +48,6 @@ def get_deployment_webhook_info(deployment_id: uuid.UUID, session: SessionDep, c
     deployment = session.get(DeploymentConfig, deployment_id)
     if not deployment:
         raise HTTPException(status_code=404, detail="Deployment not found")
-
-    # Calculate webhook URL (or use field if persisted, but checking model, it's calculated in DeploymentRead)
-    # DeploymentRead calculates it. We need to replicate or use DeploymentRead logic.
-    # DeploymentRead uses: webhook_url: str = "" # Calculated field
-    # In API logic usually it's injected.
-    # Let's verify how DeploymentRead gets webhook_url.
-    # It seems to be done in `read_deployments`? No, SQLModel matching.
-    # Actually, `DeploymentRead` has `webhook_url` but `DeploymentConfig` doesn't?
-    # DeploymentConfig table definition in tool 263 doesn't have webhook_url column.
-    # So `read_deployments` probably computes it?
-    # Let's check `read_deployments` impl.
-    # For now, I'll calculate it: f"/api/v1/deployments/webhook/{deployment_id}"
 
     webhook_url = f"/api/v1/deployments/webhook/{deployment_id}"
     return DeploymentWebhookInfo(webhook_url=webhook_url, secret=deployment.secret)
@@ -168,12 +157,19 @@ def create_deployment(
             )
             created_website = website_manager.create_website(website_data)
 
-            if created_website and deployment_data.website_ssl and current_user and current_user.email:
-                website_manager.enable_ssl(created_website.id, current_user.email)
+            ssl_email = getattr(current_user, "email", None) or getattr(current_user, "username", "admin@localhost")
+            if created_website and deployment_data.website_ssl and ssl_email:
+                website_manager.enable_ssl(created_website.id, ssl_email)
 
         except Exception as e:
             logger.error(f"Failed to auto-create website for deployment {db_obj.id}: {e}")
             # We don't fail the deployment creation, just log the error
+
+    # Populate website info for return
+    website = session.exec(select(Website).where(Website.deployment_id == db_obj.id)).first()
+    if website:
+        db_obj_read.website_domain = website.domain
+        db_obj_read.website_ssl = website.ssl_enabled
 
     return db_obj_read
 
@@ -185,6 +181,13 @@ def read_deployments(session: Session = Depends(get_session), current_user: Curr
     for d in deployments:
         d_read = DeploymentRead.model_validate(d)
         d_read.webhook_url = f"{settings.API_V1_STR}/deployments/webhook/{d.id}"
+
+        # Populate website info
+        website = session.exec(select(Website).where(Website.deployment_id == d.id)).first()
+        if website:
+            d_read.website_domain = website.domain
+            d_read.website_ssl = website.ssl_enabled
+
         results.append(d_read)
     return results
 
@@ -201,6 +204,13 @@ def get_deployment(
         raise HTTPException(status_code=404, detail="Deployment not found")
     d_read = DeploymentRead.model_validate(deployment)
     d_read.webhook_url = f"{settings.API_V1_STR}/deployments/webhook/{deployment.id}"
+
+    # Populate website info
+    website = session.exec(select(Website).where(Website.deployment_id == deployment.id)).first()
+    if website:
+        d_read.website_domain = website.domain
+        d_read.website_ssl = website.ssl_enabled
+
     return d_read
 
 
@@ -216,8 +226,63 @@ def update_deployment(
     if not deployment:
         raise HTTPException(status_code=404, detail="Deployment not found")
 
+    # Handle Website Linking logic
+    if update_data.website_domain is not None:
+        website_manager = WebsiteManager(session)
+        existing_website = session.exec(select(Website).where(Website.deployment_id == deployment.id)).first()
+
+        target_domain = update_data.website_domain.strip()
+        target_ssl = update_data.website_ssl if update_data.website_ssl is not None else False
+
+        if not target_domain:
+            # Unlink/Delete website if domain is cleared
+            if existing_website:
+                website_manager.delete_website(existing_website.id)
+        else:
+            # Create or Update
+            if existing_website:
+                if existing_website.domain != target_domain:
+                    # Domain changed: Delete old and create new
+                    website_manager.delete_website(existing_website.id)
+                    # Create new
+                    new_website_data = WebsiteCreate(
+                        name=deployment.name,
+                        domain=target_domain,
+                        port=deployment.current_port,
+                        project_path=deployment.project_path,
+                        is_static=False,
+                        is_laravel=deployment.is_laravel,
+                        deployment_id=deployment.id,
+                        owner_id=current_user.id if current_user else None
+                    )
+                    created_site = website_manager.create_website(new_website_data)
+                    ssl_email = getattr(current_user, "email", None) or getattr(current_user, "username", "admin@localhost")
+                    if target_ssl and ssl_email:
+                        website_manager.enable_ssl(created_site.id, ssl_email)
+                else:
+                    # Same domain, check SSL
+                    ssl_email = getattr(current_user, "email", None) or getattr(current_user, "username", "admin@localhost")
+                    if target_ssl and not existing_website.ssl_enabled and ssl_email:
+                         website_manager.enable_ssl(existing_website.id, ssl_email)
+            else:
+                 # No existing website, create new
+                new_website_data = WebsiteCreate(
+                    name=deployment.name,
+                    domain=target_domain,
+                    port=deployment.current_port,
+                    project_path=deployment.project_path,
+                    is_static=False,
+                    is_laravel=deployment.is_laravel,
+                    deployment_id=deployment.id,
+                    owner_id=current_user.id if current_user else None
+                )
+                created_site = website_manager.create_website(new_website_data)
+                ssl_email = getattr(current_user, "email", None) or getattr(current_user, "username", "admin@localhost")
+                if target_ssl and ssl_email:
+                    website_manager.enable_ssl(created_site.id, ssl_email)
+
     # Update only provided fields
-    update_dict = update_data.model_dump(exclude_unset=True)
+    update_dict = update_data.model_dump(exclude_unset=True, exclude={"website_domain", "website_ssl"})
     for key, value in update_dict.items():
         setattr(deployment, key, value)
 
@@ -227,6 +292,13 @@ def update_deployment(
 
     d_read = DeploymentRead.model_validate(deployment)
     d_read.webhook_url = f"{settings.API_V1_STR}/deployments/webhook/{deployment.id}"
+
+    # Populate website info
+    website = session.exec(select(Website).where(Website.deployment_id == deployment.id)).first()
+    if website:
+        d_read.website_domain = website.domain
+        d_read.website_ssl = website.ssl_enabled
+
     return d_read
 
 
