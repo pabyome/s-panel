@@ -36,14 +36,11 @@ class TestLaravelServiceConfig:
         print(f"Generated CMD: {healthcheck_cmd}")
 
         # The expected string in the shell command (as Python string)
-        # php -r "\$e=0; \$s=''; if(!@fsockopen('127.0.0.1', 8081, \$e, \$s, 2)) exit(1);"
+        # wget -q --spider http://127.0.0.1:8081 || exit 1
 
-        # Check for presence of escaped variables
-        assert "\\$e" in healthcheck_cmd, "Variable $e should be escaped as \\$e in the shell command"
-        assert "\\$s" in healthcheck_cmd, "Variable $s should be escaped as \\$s in the shell command"
-
-        # Also verify it uses fsockopen on correct port
-        assert "fsockopen('127.0.0.1', 8081" in healthcheck_cmd
+        # Check for usage of wget with correct flags and port
+        assert "wget -q --spider" in healthcheck_cmd
+        assert "http://127.0.0.1:8081" in healthcheck_cmd
 
     def test_web_service_command_uses_frankenphp(self):
         """
@@ -70,3 +67,13 @@ class TestLaravelServiceConfig:
         # We expect command to be frankenphp
         # Check if command starts with frankenphp
         assert command[0] == "frankenphp" or "frankenphp" in command, f"Command should use frankenphp, but got: {command}"
+
+    def test_server_name_uses_http_scheme(self):
+        """
+        Verify SERVER_NAME env var uses http:// scheme.
+        """
+        deployment = DeploymentConfig(
+            id=1, name="Test", repo_url="", branch="main", current_port=9000, project_path="/tmp", status="deployed"
+        )
+        env_vars = LaravelService._get_env_vars("/tmp", 9000)
+        assert env_vars["SERVER_NAME"] == "http://:9000"
