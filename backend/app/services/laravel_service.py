@@ -419,7 +419,10 @@ class LaravelService:
             "restart_policy": {"condition": "on-failure", "delay": "5s", "max_attempts": 3}
         }
         # Explicitly force FrankenPHP to listen on the correct port
-        services["web"]["command"] = ["frankenphp", "php-server", "--listen", f":{deployment.current_port}"]
+        # Debugging: Use php artisan serve to rule out FrankenPHP issues temporarily
+        # services["web"]["command"] = ["frankenphp", "php-server", "--listen", f":{deployment.current_port}"]
+        services["web"]["command"] = ["php", "artisan", "serve", "--host", "0.0.0.0", "--port", f"{deployment.current_port}"]
+
         services["web"]["ports"] = [f"{deployment.current_port}:{deployment.current_port}"]
         # Add explicit healthcheck because default one might check port 80 or 2019
         services["web"]["healthcheck"] = {
