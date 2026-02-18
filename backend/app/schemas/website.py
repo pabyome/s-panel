@@ -13,6 +13,7 @@ class WebsiteCreate(SQLModel):
     is_static: bool = False  # True for static HTML sites
     is_laravel: bool = False
     deployment_id: Optional[uuid.UUID] = None
+    owner_id: Optional[int] = None
 
     @field_validator("domain")
     @classmethod
