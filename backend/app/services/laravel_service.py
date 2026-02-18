@@ -422,10 +422,10 @@ class LaravelService:
         services["web"]["command"] = ["frankenphp", "php-server", "--listen", f"0.0.0.0:{deployment.current_port}"]
 
         services["web"]["ports"] = [f"{deployment.current_port}:{deployment.current_port}"]
-        # Use wget for healthcheck (more robust than php fsockopen for network resolution in Alpine)
-        # Use -q --spider for BusyBox wget compatibility
+        # Use TCP healthcheck to ensure the container is listening.
+        # This avoids boot loops if the application returns 500 (e.g. DB connection error), allowing debugging.
         services["web"]["healthcheck"] = {
-            "test": ["CMD-SHELL", f"wget -q --spider http://127.0.0.1:{deployment.current_port} || exit 1"],
+            "test": ["CMD-SHELL", f"php -r \"\\$e=0; \\$s=''; if(!@fsockopen('127.0.0.1', {deployment.current_port}, \\$e, \\$s, 2)) exit(1);\""],
             "interval": "30s",
             "timeout": "5s",
             "retries": 3,
