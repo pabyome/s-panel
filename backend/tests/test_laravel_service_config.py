@@ -36,11 +36,14 @@ class TestLaravelServiceConfig:
         print(f"Generated CMD: {healthcheck_cmd}")
 
         # The expected string in the shell command (as Python string)
-        # wget -q --spider http://127.0.0.1:8081 || exit 1
+        # php -r "\$e=0; \$s=''; if(!@fsockopen('127.0.0.1', 8081, \$e, \$s, 2)) exit(1);"
 
-        # Check for usage of wget with correct flags and port
-        assert "wget -q --spider" in healthcheck_cmd
-        assert "http://127.0.0.1:8081" in healthcheck_cmd
+        # Check for presence of escaped variables
+        assert "\\$e" in healthcheck_cmd, "Variable $e should be escaped as \\$e in the shell command"
+        assert "\\$s" in healthcheck_cmd, "Variable $s should be escaped as \\$s in the shell command"
+
+        # Also verify it uses fsockopen on correct port
+        assert "fsockopen('127.0.0.1', 8081" in healthcheck_cmd
 
     def test_web_service_command_uses_frankenphp(self):
         """
