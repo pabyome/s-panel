@@ -32,7 +32,7 @@ def test_create_website(mock_nginx, session):
     assert website.id is not None
     assert website.domain == "test.com"
     # Verify NginxManager was called
-    mock_nginx.create_site.assert_called_once_with("test.com", 3000)
+    mock_nginx.create_site.assert_called_once_with("test.com", 3000, is_static=False, project_path="/var/www/test")
 
 @patch("app.services.website_manager.NginxManager")
 def test_delete_website(mock_nginx, session):
