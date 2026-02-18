@@ -266,9 +266,9 @@ def delete_website(website_id: int, session: SessionDep, current_user: CurrentUs
 @router.post("/{website_id}/ssl")
 def enable_ssl(website_id: int, email: str, session: SessionDep, current_user: CurrentUser):
     manager = WebsiteManager(session)
-    success = manager.enable_ssl(website_id, email)
+    success, message = manager.enable_ssl(website_id, email)
     if not success:
-        raise HTTPException(status_code=400, detail="Failed to enable SSL. Check domains or server logs.")
+        raise HTTPException(status_code=400, detail=f"Failed to enable SSL: {message}")
     return {"ok": True}
 
 

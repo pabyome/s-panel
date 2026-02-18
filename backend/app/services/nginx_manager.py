@@ -16,9 +16,22 @@ class NginxManager:
         try:
             subprocess.run(command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             return True
-        except subprocess.CalledProcessError as e:
+        except subprocess.CalledProcessError:
             # Don't print to stdout in production, maybe log?
             return False
+
+    @staticmethod
+    def _run_command_detailed(command: list[str]) -> tuple[bool, str]:
+        """Runs a command and returns (success, output/error_message)"""
+        try:
+            result = subprocess.run(command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            return True, result.stdout
+        except subprocess.CalledProcessError as e:
+            return False, e.stderr or str(e)
+        except FileNotFoundError:
+            return False, f"Command not found: {command[0]}"
+        except Exception as e:
+            return False, str(e)
 
     @classmethod
     def generate_config(cls, domain: str, port: int, is_static: bool = False, project_path: str = None, waf_config: Optional[WafConfig] = None, ssl_enabled: bool = False) -> str:
@@ -238,10 +251,10 @@ server {{
         }
 
     @staticmethod
-    def secure_site(domain: str, email: str) -> bool:
+    def secure_site(domain: str, email: str) -> tuple[bool, str]:
         # certbot --nginx -d domain.com --non-interactive --agree-tos -m email
         cmd = ["certbot", "--nginx", "-d", domain, "--non-interactive", "--agree-tos", "-m", email]
-        return NginxManager._run_command(cmd)
+        return NginxManager._run_command_detailed(cmd)
 
     @staticmethod
     def get_version() -> str:

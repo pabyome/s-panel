@@ -56,12 +56,12 @@ class WebsiteManager:
         self.session.commit()
         return True
 
-    def enable_ssl(self, website_id: int, email: str) -> bool:
+    def enable_ssl(self, website_id: int, email: str) -> tuple[bool, str]:
         website = self.get_website_by_id(website_id)
         if not website:
-            return False
+            return False, "Website not found"
 
-        success = NginxManager.secure_site(website.domain, email)
+        success, message = NginxManager.secure_site(website.domain, email)
         if success:
             website.ssl_enabled = True
             self.session.add(website)
@@ -80,4 +80,4 @@ class WebsiteManager:
             except Exception as e:
                 print(f"Failed to setup SSL renewal cron: {e}")
 
-        return success
+        return success, message
