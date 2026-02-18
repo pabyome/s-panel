@@ -423,7 +423,7 @@ class LaravelService:
         services["web"]["ports"] = [f"{deployment.current_port}:{deployment.current_port}"]
         # Add explicit healthcheck because default one might check port 80 or 2019
         services["web"]["healthcheck"] = {
-            "test": ["CMD-SHELL", f"php -r \"if(file_get_contents('http://127.0.0.1:{deployment.current_port}')===false) exit(1);\""],
+            "test": ["CMD-SHELL", f"php -r \"fsockopen('127.0.0.1', {deployment.current_port}, $errno, $errstr, 2) or exit(1);\""],
             "interval": "30s",
             "timeout": "5s",
             "retries": 3,
