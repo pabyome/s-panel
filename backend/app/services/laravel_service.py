@@ -425,11 +425,11 @@ class LaravelService:
         # Use TCP healthcheck to ensure the container is listening.
         # This avoids boot loops if the application returns 500 (e.g. DB connection error), allowing debugging.
         services["web"]["healthcheck"] = {
-            "test": ["CMD-SHELL", f"php -r \"\\$e=0; \\$s=''; if(!@fsockopen('127.0.0.1', {deployment.current_port}, \\$e, \\$s, 2)) exit(1);\""],
+            "test": ["CMD-SHELL", f"curl -f http://127.0.0.1:{deployment.current_port}/ || exit 1"],
             "interval": "30s",
             "timeout": "5s",
             "retries": 3,
-            "start_period": "10s"
+            "start_period": "20s"
         }
 
         # 2. Worker Service (Queue)
