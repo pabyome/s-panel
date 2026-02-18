@@ -421,6 +421,14 @@ class LaravelService:
         # Explicitly force FrankenPHP to listen on the correct port
         services["web"]["command"] = ["frankenphp", "php-server", "--listen", f":{deployment.current_port}"]
         services["web"]["ports"] = [f"{deployment.current_port}:{deployment.current_port}"]
+        # Add explicit healthcheck because default one might check port 80 or 2019
+        services["web"]["healthcheck"] = {
+            "test": ["CMD-SHELL", f"php -r \"if(file_get_contents('http://127.0.0.1:{deployment.current_port}')===false) exit(1);\""],
+            "interval": "30s",
+            "timeout": "5s",
+            "retries": 3,
+            "start_period": "10s"
+        }
 
         # 2. Worker Service (Queue)
         if deployment.laravel_worker_replicas > 0:
