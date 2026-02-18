@@ -44,3 +44,29 @@ class TestLaravelServiceConfig:
 
         # Also verify it uses fsockopen on correct port
         assert "fsockopen('127.0.0.1', 8081" in healthcheck_cmd
+
+    def test_web_service_command_uses_frankenphp(self):
+        """
+        Verify that the web service command uses frankenphp.
+        """
+        # Mock deployment config
+        deployment = DeploymentConfig(
+            id=1,
+            name="TestApp",
+            repo_url="http://github.com/test/repo",
+            branch="main",
+            current_port=2019,
+            project_path="/tmp/test",
+            status="deployed"
+        )
+
+        # Generate config
+        env_vars = {"APP_KEY": "base64:..."}
+        stack_config = LaravelService.generate_stack_config(deployment, "my-image:latest", env_vars)
+
+        web_service = stack_config["services"]["web"]
+        command = web_service["command"]
+
+        # We expect command to be frankenphp
+        # Check if command starts with frankenphp
+        assert command[0] == "frankenphp" or "frankenphp" in command, f"Command should use frankenphp, but got: {command}"
