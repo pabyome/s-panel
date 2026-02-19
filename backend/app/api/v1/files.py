@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Query, Body
+from fastapi import APIRouter, HTTPException, Query, Body, UploadFile, File, Form
 from typing import List, Optional
 from pydantic import BaseModel
 from app.api.deps import CurrentUser
@@ -55,6 +55,22 @@ def save_file_content(current_user: CurrentUser, data: FileContent):
         return {"message": "File saved successfully"}
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/upload")
+def upload_file(
+    current_user: CurrentUser,
+    path: str = Form(...),
+    file: UploadFile = File(...)
+):
+    try:
+        FileManager.save_upload(path, file.file, file.filename)
+        return {"message": "File uploaded successfully"}
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except NotADirectoryError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
