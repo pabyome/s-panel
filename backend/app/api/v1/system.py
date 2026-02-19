@@ -28,7 +28,8 @@ router = APIRouter()
 
 @router.get("/path/list", response_model=PathListResponse)
 def list_directory(
-    path: str = Query(default="/", description="Absolute path to list"), current_user: CurrentUser = None
+    current_user: CurrentUser,
+    path: str = Query(default="/", description="Absolute path to list")
 ):
     # Security check: Ensure we don't go above root
     # For MVP running as root, we allow browsing everything.
@@ -221,9 +222,9 @@ def get_listening_ports(current_user: CurrentUser):
 
 @router.get("/ports/find-free")
 def find_free_port(
+    current_user: CurrentUser,
     start: int = Query(default=3000, description="Start of port range"),
     end: int = Query(default=9000, description="End of port range"),
-    current_user: CurrentUser = None,
 ):
     """Find the next available port in a range."""
     if start < 1 or end > 65535 or start > end:

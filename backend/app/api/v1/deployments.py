@@ -127,8 +127,8 @@ async def broadcast_deployment_update(deployment_id: str, logs: str, status: str
 @router.post("/", response_model=DeploymentRead)
 def create_deployment(
     deployment_data: DeploymentCreate,
+    current_user: CurrentUser,
     session: Session = Depends(get_session),
-    current_user: CurrentUser = None,
 ):
     # Generate secret
     new_secret = secrets.token_hex(20)  # 40 chars
@@ -175,7 +175,7 @@ def create_deployment(
 
 
 @router.get("/", response_model=List[DeploymentRead])
-def read_deployments(session: Session = Depends(get_session), current_user: CurrentUser = None):
+def read_deployments(current_user: CurrentUser, session: Session = Depends(get_session)):
     deployments = session.exec(select(DeploymentConfig)).all()
     results = []
     for d in deployments:
@@ -195,8 +195,8 @@ def read_deployments(session: Session = Depends(get_session), current_user: Curr
 @router.get("/{deployment_id}", response_model=DeploymentRead)
 def get_deployment(
     deployment_id: uuid.UUID,
+    current_user: CurrentUser,
     session: Session = Depends(get_session),
-    current_user: CurrentUser = None,
 ):
     """Get a single deployment with full details including logs."""
     deployment = session.get(DeploymentConfig, deployment_id)
@@ -218,8 +218,8 @@ def get_deployment(
 def update_deployment(
     deployment_id: uuid.UUID,
     update_data: DeploymentUpdate,
+    current_user: CurrentUser,
     session: Session = Depends(get_session),
-    current_user: CurrentUser = None,
 ):
     """Update a deployment configuration."""
     deployment = session.get(DeploymentConfig, deployment_id)
@@ -306,8 +306,8 @@ def update_deployment(
 async def manual_trigger(
     deployment_id: uuid.UUID,
     background_tasks: BackgroundTasks,
+    current_user: CurrentUser,
     session: Session = Depends(get_session),
-    current_user: CurrentUser = None,
 ):
     """Manually trigger a deployment (useful for testing or manual deploys)."""
     deployment = session.get(DeploymentConfig, deployment_id)
@@ -326,8 +326,8 @@ async def manual_trigger(
 @router.post("/{deployment_id}/logs/clear")
 def clear_deployment_logs(
     deployment_id: uuid.UUID,
+    current_user: CurrentUser,
     session: Session = Depends(get_session),
-    current_user: CurrentUser = None,
 ):
     """Clear the logs for a deployment"""
     deployment = session.get(DeploymentConfig, deployment_id)
@@ -343,8 +343,8 @@ def clear_deployment_logs(
 @router.delete("/{deployment_id}")
 def delete_deployment(
     deployment_id: uuid.UUID,
+    current_user: CurrentUser,
     session: Session = Depends(get_session),
-    current_user: CurrentUser = None,
 ):
     deployment = session.get(DeploymentConfig, deployment_id)
     if not deployment:
@@ -358,7 +358,7 @@ def delete_deployment(
 def get_deployment_history(
     deployment_id: uuid.UUID,
     session: SessionDep,
-    current_user: CurrentUser = None,
+    current_user: CurrentUser,
 ):
     deployment = session.get(DeploymentConfig, deployment_id)
     if not deployment:
@@ -374,7 +374,7 @@ async def trigger_rollback(
     request: RollbackRequest,
     background_tasks: BackgroundTasks,
     session: SessionDep,
-    current_user: CurrentUser = None,
+    current_user: CurrentUser,
 ):
     deployment = session.get(DeploymentConfig, deployment_id)
     if not deployment:

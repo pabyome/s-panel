@@ -113,7 +113,7 @@ def list_log_files(current_user: CurrentUser):
 
 
 @router.get("/content", response_model=LogContent)
-def get_log_content(path: str, lines: int = Query(100, le=1000), current_user: CurrentUser = None):
+def get_log_content(path: str, current_user: CurrentUser, lines: int = Query(100, le=1000)):
     # Security: Validate path is against allowed
     validated_path = validate_log_path(path)
 

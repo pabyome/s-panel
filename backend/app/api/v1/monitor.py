@@ -1,10 +1,13 @@
-from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, Query
 from starlette.websockets import WebSocketState
 from typing import Dict, Any, List, Optional
 import asyncio
 import logging
+import jwt
+from pydantic import ValidationError
 from app.api.deps import CurrentUser
 from app.services.system_monitor import SystemMonitor
+from app.core.security import ALGORITHM, SECRET_KEY
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -86,7 +89,17 @@ def get_top_processes(
 
 
 @router.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
+async def websocket_endpoint(
+    websocket: WebSocket,
+    token: str = Query(...)
+):
+    # Authenticate via Token
+    try:
+        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except (jwt.PyJWTError, ValidationError):
+        await websocket.close(code=1008, reason="Invalid authentication token")
+        return
+
     await manager.connect(websocket)
     try:
         while True:
