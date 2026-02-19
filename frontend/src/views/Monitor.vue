@@ -157,8 +157,10 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import axios from 'axios'
 import ConfirmModal from '../components/ConfirmModal.vue'
 import { useToast } from '../composables/useToast.js'
+import { useAuthStore } from '../stores/auth'
 
 const toast = useToast()
+const authStore = useAuthStore()
 const stats = ref({}) // cpu, memory, disk, load_avg
 const processes = ref([])
 const connected = ref(false)
@@ -178,7 +180,7 @@ const formatBytes = (bytes, decimals = 2) => {
 
 const connectWebSocket = () => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const wsUrl = `${protocol}//${window.location.host}/api/v1/monitor/ws`
+    const wsUrl = `${protocol}//${window.location.host}/api/v1/monitor/ws?token=${authStore.token}`
 
     ws = new WebSocket(wsUrl)
 
