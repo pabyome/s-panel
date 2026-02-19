@@ -186,6 +186,37 @@ class DockerService:
             logger.error(f"Error getting logs for {container_id}: {e}")
             raise
 
+    # --- Exec Methods for Terminal ---
+
+    def exec_create(self, container_id: str, cmd: str, user: str = "root", workdir: str = "/") -> str:
+        self._check_client()
+        try:
+            exec_instance = self.client.api.exec_create(
+                container_id, cmd, user=user, workdir=workdir, stdin=True, tty=True
+            )
+            return exec_instance['Id']
+        except Exception as e:
+            logger.error(f"Error creating exec instance for {container_id}: {e}")
+            raise
+
+    def exec_start(self, exec_id: str) -> Any:
+        self._check_client()
+        try:
+            # Returns a socket because socket=True
+            return self.client.api.exec_start(exec_id, detach=False, tty=True, socket=True)
+        except Exception as e:
+            logger.error(f"Error starting exec instance {exec_id}: {e}")
+            raise
+
+    def exec_resize(self, exec_id: str, height: int, width: int) -> None:
+        self._check_client()
+        try:
+            self.client.api.exec_resize(exec_id, height=height, width=width)
+        except Exception as e:
+            logger.error(f"Error resizing exec instance {exec_id}: {e}")
+            # Don't raise, just log, as resize failure shouldn't kill the session
+            pass
+
     def run_container(self, data: Any) -> Dict[str, Any]:
         self._check_client()
 

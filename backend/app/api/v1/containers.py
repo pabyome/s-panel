@@ -1,8 +1,15 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, WebSocket, WebSocketDisconnect, Query
 from typing import List, Any
+import asyncio
+import jwt
+import json
+import logging
 from app.api.deps import CurrentUser
 from app.services.docker_service import docker_service
 from app.schemas.docker import ContainerInfo, LogResponse, ContainerCreate
+from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -93,3 +100,97 @@ def get_logs(
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.websocket("/{container_id}/terminal")
+async def terminal_websocket(
+    websocket: WebSocket,
+    container_id: str,
+    token: str = Query(...)
+):
+    """
+    WebSocket endpoint for interactive container terminal.
+    """
+    # Verify Token
+    try:
+        jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+    except (jwt.PyJWTError, Exception):
+         await websocket.close(code=1008, reason="Invalid authentication token")
+         return
+
+    await websocket.accept()
+
+    sock = None
+    try:
+        # Create exec instance
+        # Use /bin/bash by default, but it might fail on alpine.
+        # Ideally we could inspect image to know shell, but for now /bin/bash is a good guess.
+        # Some containers only have /bin/sh.
+        # We'll try /bin/bash.
+        cmd = "/bin/bash"
+        exec_id = docker_service.exec_create(container_id, cmd)
+
+        # Start exec and get socket
+        sock = docker_service.exec_start(exec_id)
+
+        # Helper to read from docker socket and send to websocket
+        async def read_from_docker():
+            try:
+                while True:
+                    data = await asyncio.to_thread(sock.recv, 4096)
+                    if not data:
+                        break
+                    await websocket.send_text(data.decode('utf-8', errors='replace'))
+            except Exception as e:
+                # Expected when socket closed
+                pass
+            finally:
+                # If docker closes, we close websocket
+                try:
+                    await websocket.close()
+                except:
+                    pass
+
+        # Helper to read from websocket and write to docker socket
+        async def write_to_docker():
+            try:
+                while True:
+                    data = await websocket.receive_text()
+                    # Check if it's a resize command (JSON)
+                    try:
+                        # Optimization: only try to parse if it looks like JSON
+                        if data.strip().startswith('{'):
+                             msg = json.loads(data)
+                             if 'cols' in msg and 'rows' in msg:
+                                 docker_service.exec_resize(exec_id, height=msg['rows'], width=msg['cols'])
+                                 continue
+                    except json.JSONDecodeError:
+                        pass
+
+                    # Otherwise write to socket
+                    await asyncio.to_thread(sock.send, data.encode('utf-8'))
+            except WebSocketDisconnect:
+                pass
+            except Exception as e:
+                 logger.error(f"Error writing to docker: {e}")
+            finally:
+                 # If websocket closes, we assume session is done
+                 try:
+                    sock.close()
+                 except:
+                    pass
+
+        # Run tasks
+        await asyncio.gather(read_from_docker(), write_to_docker())
+
+    except Exception as e:
+        logger.error(f"Terminal error: {e}")
+        try:
+             await websocket.close(code=1011, reason=str(e))
+        except:
+             pass
+    finally:
+        if sock:
+            try:
+                sock.close()
+            except:
+                pass
