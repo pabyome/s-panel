@@ -84,6 +84,9 @@
                   <button @click="showLogs(container)" class="text-gray-600 hover:text-gray-900" title="Logs">
                     <DocumentTextIcon class="h-5 w-5" />
                   </button>
+                  <button v-if="container.status === 'running'" @click="openTerminal(container)" class="text-gray-600 hover:text-gray-900" title="Terminal">
+                    <CommandLineIcon class="h-5 w-5" />
+                  </button>
                    <button v-if="container.status !== 'running'" @click="performAction(container.id, 'remove')" class="text-red-600 hover:text-red-900" title="Remove">
                     <TrashIcon class="h-5 w-5" />
                   </button>
@@ -121,6 +124,27 @@
            <div class="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
             <button type="button" class="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto" @click="closeLogs">Close</button>
             <button type="button" class="mr-3 inline-flex w-full justify-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 sm:mt-0 sm:w-auto" @click="refreshLogs">Refresh</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Terminal Modal -->
+    <div v-if="terminalOpen" class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="terminal-modal-title" role="dialog" aria-modal="true">
+      <div class="flex min-h-screen items-end justify-center px-4 pb-20 pt-4 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" @click="closeTerminal"></div>
+        <span class="hidden sm:inline-block sm:h-screen sm:align-middle" aria-hidden="true">&#8203;</span>
+        <div class="relative inline-block transform overflow-hidden rounded-lg bg-gray-900 text-left align-bottom shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-6xl sm:align-middle border border-gray-700">
+          <div class="bg-gray-800 px-4 py-3 sm:px-6 flex justify-between items-center border-b border-gray-700">
+            <h3 class="text-lg font-medium leading-6 text-white" id="terminal-modal-title">
+              Terminal: {{ terminalContainerName }}
+            </h3>
+            <button @click="closeTerminal" class="text-gray-400 hover:text-white">
+              <XMarkIcon class="h-6 w-6" />
+            </button>
+          </div>
+          <div class="p-0 h-[600px] w-full bg-black relative">
+             <div ref="terminalContainer" class="absolute inset-0"></div>
           </div>
         </div>
       </div>
@@ -207,7 +231,10 @@
 
 <script setup>
 import { ref, onMounted, reactive } from 'vue'
-import { ArrowPathIcon, PlayIcon, StopIcon, DocumentTextIcon, XMarkIcon, TrashIcon, PlusIcon, PauseIcon } from '@heroicons/vue/24/outline'
+import { ArrowPathIcon, PlayIcon, StopIcon, DocumentTextIcon, XMarkIcon, TrashIcon, PlusIcon, PauseIcon, CommandLineIcon } from '@heroicons/vue/24/outline'
+import { Terminal } from 'xterm'
+import { FitAddon } from 'xterm-addon-fit'
+import 'xterm/css/xterm.css'
 import axios from 'axios'
 
 const containers = ref([])
@@ -217,6 +244,96 @@ const logsContent = ref('')
 const logsLoading = ref(false)
 const isCreateModalOpen = ref(false)
 const isCreating = ref(false)
+
+// Terminal State
+const terminalOpen = ref(false)
+const terminalContainerName = ref('')
+const terminalContainer = ref(null)
+let term = null
+let fitAddon = null
+let socket = null
+
+const openTerminal = (container) => {
+    terminalContainerName.value = container.name
+    terminalOpen.value = true
+    // Wait for DOM
+    setTimeout(() => {
+        initTerminal(container.id)
+    }, 100)
+}
+
+const closeTerminal = () => {
+    terminalOpen.value = false
+    if (socket) {
+        socket.close()
+        socket = null
+    }
+    if (term) {
+        term.dispose()
+        term = null
+    }
+}
+
+const initTerminal = (containerId) => {
+    if (!terminalContainer.value) return
+
+    term = new Terminal({
+        cursorBlink: true,
+        fontSize: 14,
+        fontFamily: 'monospace',
+        theme: {
+            background: '#000000',
+        }
+    })
+
+    fitAddon = new FitAddon()
+    term.loadAddon(fitAddon)
+
+    term.open(terminalContainer.value)
+    fitAddon.fit()
+
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    const host = window.location.host
+    const token = localStorage.getItem('token')
+
+    socket = new WebSocket(`${protocol}//${host}/api/v1/containers/${containerId}/terminal?token=${token}`)
+
+    socket.onopen = () => {
+        term.write('\r\nConnected to terminal...\r\n')
+        fitAddon.fit()
+        socket.send(JSON.stringify({ cols: term.cols, rows: term.rows }))
+    }
+
+    socket.onmessage = (event) => {
+        term.write(event.data)
+    }
+
+    socket.onclose = (event) => {
+        term.write(`\r\nConnection closed (Code: ${event.code})\r\n`)
+    }
+
+    socket.onerror = (error) => {
+        console.error('WebSocket error:', error)
+        term.write('\r\nWebSocket error\r\n')
+    }
+
+    term.onData(data => {
+        if (socket && socket.readyState === WebSocket.OPEN) {
+            socket.send(data)
+        }
+    })
+
+    term.onResize(size => {
+        if (socket && socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({ cols: size.cols, rows: size.rows }))
+        }
+    })
+
+    // Handle window resize
+    window.addEventListener('resize', () => {
+        if (fitAddon) fitAddon.fit()
+    })
+}
 
 const createForm = reactive({
     image: '',
