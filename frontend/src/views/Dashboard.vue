@@ -266,7 +266,7 @@ const connectWebSocket = () => {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
   const host = window.location.hostname
   const port = window.location.port ? `:${window.location.port}` : ''
-  const wsUrl = `${protocol}//${host}${port}/api/v1/monitor/ws`
+  const wsUrl = `${protocol}//${host}${port}/api/v1/monitor/ws?token=${authStore.token}`
 
   console.log('Connecting to WebSocket:', wsUrl)
 
