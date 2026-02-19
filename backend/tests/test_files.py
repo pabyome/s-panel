@@ -31,3 +31,18 @@ def test_delete_item(mock_delete, client):
     response = client.post("/api/v1/files/delete", json={"path": "/item"})
     assert response.status_code == 200
     mock_delete.assert_called_with("/item")
+
+@patch("app.services.file_manager.FileManager.save_upload")
+def test_upload_file(mock_save_upload, client):
+    file_content = b"test content"
+    response = client.post(
+        "/api/v1/files/upload",
+        data={"path": "/uploads"},
+        files={"file": ("test.txt", file_content, "text/plain")}
+    )
+    assert response.status_code == 200
+    mock_save_upload.assert_called_once()
+    # Check arguments
+    args = mock_save_upload.call_args[0]
+    assert args[0] == "/uploads"
+    assert args[2] == "test.txt"

@@ -7,12 +7,25 @@
         <p class="mt-1 text-sm text-gray-500">Manage your server files</p>
       </div>
       <div class="flex gap-2">
+         <input
+            type="file"
+            ref="fileInput"
+            class="hidden"
+            @change="handleFileUpload"
+        />
          <button
             @click="createDirectory"
             class="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 transition-all"
         >
             <FolderPlusIcon class="h-4 w-4 text-gray-500" />
             New Folder
+        </button>
+        <button
+            @click="triggerUpload"
+            class="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 transition-all"
+        >
+            <ArrowUpTrayIcon class="h-4 w-4 text-gray-500" />
+            Upload
         </button>
         <button
             @click="createFile"
@@ -138,7 +151,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
-import { FolderIcon, DocumentIcon, ArrowUpIcon, ArrowPathIcon, FolderPlusIcon, DocumentPlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { FolderIcon, DocumentIcon, ArrowUpIcon, ArrowPathIcon, FolderPlusIcon, DocumentPlusIcon, TrashIcon, ArrowUpTrayIcon } from '@heroicons/vue/24/outline'
 import ConfirmModal from '../components/ConfirmModal.vue'
 import { Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot } from '@headlessui/vue'
 import { useToast } from '../composables/useToast' // Assuming useToast is available here like in Logs.vue, if not I will check.
@@ -162,6 +175,7 @@ const fileContent = ref('')
 const isDeleteModalOpen = ref(false)
 const itemToDelete = ref(null)
 const isDeleting = ref(false)
+const fileInput = ref(null)
 
 const formatBytes = (bytes, decimals = 1) => {
     if (!+bytes) return '0 B'
@@ -254,6 +268,36 @@ const deleteItem = async () => {
     } finally {
         isDeleting.value = false
         itemToDelete.value = null
+    }
+}
+
+const triggerUpload = () => {
+    fileInput.value.click()
+}
+
+const handleFileUpload = async (event) => {
+    const file = event.target.files[0]
+    if (!file) return
+
+    const formData = new FormData()
+    formData.append('path', currentPath.value)
+    formData.append('file', file)
+
+    loading.value = true
+    try {
+        await axios.post('/api/v1/files/upload', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
+        })
+        toast.success('File uploaded successfully')
+        loadPath(currentPath.value)
+    } catch (e) {
+        toast.error(`Failed to upload file: ${e.response?.data?.detail || e.message}`)
+    } finally {
+        loading.value = false
+        // Reset input so the same file can be selected again if needed
+        event.target.value = ''
     }
 }
 

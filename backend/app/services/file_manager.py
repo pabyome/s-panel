@@ -92,6 +92,21 @@ class FileManager:
         target_path.write_text(content, encoding="utf-8")
 
     @staticmethod
+    def save_upload(directory: str, file_obj, filename: str):
+        target_dir = Path(directory).resolve()
+        if not target_dir.exists():
+            raise FileNotFoundError(f"Directory not found: {directory}")
+        if not target_dir.is_dir():
+            raise NotADirectoryError(f"Path is not a directory: {directory}")
+
+        # Sanitize filename to prevent directory traversal
+        safe_filename = os.path.basename(filename)
+        target_path = target_dir / safe_filename
+
+        with open(target_path, "wb") as buffer:
+            shutil.copyfileobj(file_obj, buffer)
+
+    @staticmethod
     def create_directory(path: str):
         target_path = Path(path).resolve()
         target_path.mkdir(parents=False, exist_ok=False)
