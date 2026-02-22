@@ -19,6 +19,7 @@ from app.services.git_service import GitService
 from app.services.laravel_service import LaravelService
 from app.services.supervisor_manager import SupervisorManager
 from app.services.email_service import EmailService
+from app.services.docker_service import docker_service
 import jwt
 from pydantic import ValidationError
 from fastapi import Query
@@ -550,6 +551,13 @@ async def handle_deploy_background(deployment_id: uuid.UUID):
                         log_callback=sync_update_logs,
                     )
                 )
+
+            # Enforce Swarm Cleanup (Task History Limit)
+            if success and (deployment.is_laravel or deployment.deployment_mode == "docker-swarm"):
+                try:
+                    await asyncio.to_thread(docker_service.update_swarm_retention, 2)
+                except Exception as e:
+                    logger.warning(f"Failed to update swarm retention: {e}")
 
             # Update Status
             final_status = "success" if success else "failed"
