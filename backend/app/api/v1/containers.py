@@ -122,11 +122,10 @@ async def terminal_websocket(
     sock = None
     try:
         # Create exec instance
-        # Use /bin/bash by default, but it might fail on alpine.
-        # Ideally we could inspect image to know shell, but for now /bin/bash is a good guess.
-        # Some containers only have /bin/sh.
-        # We'll try /bin/bash.
-        cmd = "/bin/bash"
+        # Try to use bash if available, otherwise fall back to sh.
+        # This command checks for bash and execs it, or falls back to sh.
+        # We wrap it in sh to ensure portability.
+        cmd = ["/bin/sh", "-c", "if [ -x /bin/bash ]; then exec /bin/bash; else exec /bin/sh; fi"]
         exec_id = docker_service.exec_create(container_id, cmd)
 
         # Start exec and get socket
