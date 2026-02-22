@@ -305,15 +305,48 @@ class DockerService:
             logger.error(f"Error getting swarm info: {e}")
             return {"active": False, "error": str(e)}
 
-    def init_swarm(self, advertise_addr: str = "eth0:2377") -> str:
+    def init_swarm(self, advertise_addr: str = "eth0:2377", task_history_limit: int = 2) -> str:
         self._check_client()
         try:
             # Resolve interface name to IP if needed
             resolved_addr = self._resolve_ip(advertise_addr)
-            return self.client.swarm.init(advertise_addr=resolved_addr)
+            node_id = self.client.swarm.init(advertise_addr=resolved_addr)
+
+            # Set retention limit
+            self.update_swarm_retention(task_history_limit)
+
+            return node_id
         except Exception as e:
             logger.error(f"Error initializing swarm: {e}")
             raise
+
+    def update_swarm_retention(self, limit: int = 2) -> bool:
+        """
+        Update the Swarm task history retention limit.
+        """
+        self._check_client()
+        try:
+            # Reload to get current version
+            self.client.swarm.reload()
+
+            spec = self.client.swarm.attrs.get('Spec', {})
+            version = self.client.swarm.attrs.get('Version', {}).get('Index')
+
+            if 'Orchestration' not in spec:
+                spec['Orchestration'] = {}
+
+            # If limit is already set, don't update if same
+            current_limit = spec['Orchestration'].get('TaskHistoryRetentionLimit')
+            if current_limit == limit:
+                return True
+
+            spec['Orchestration']['TaskHistoryRetentionLimit'] = limit
+
+            self.client.swarm.update(version=version, swarm_spec=spec, rotate_worker_token=False, rotate_manager_token=False)
+            return True
+        except Exception as e:
+            logger.error(f"Error updating swarm retention: {e}")
+            return False
 
     def leave_swarm(self, force: bool = False) -> bool:
         self._check_client()
