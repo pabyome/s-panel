@@ -3,7 +3,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session, SQLModel, create_engine
 from sqlalchemy.pool import StaticPool
 from app.models.database import get_session
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, get_db
 from main import app
 from unittest.mock import MagicMock
 
@@ -24,13 +24,18 @@ def client_fixture(session: Session):
     def get_session_override():
         return session
 
+    def get_db_override():
+        yield session
+
     def get_current_user_override():
         user = MagicMock()
         user.is_superuser = True
         user.username = "testadmin"
+        user.role = "admin"
         return user
 
     app.dependency_overrides[get_session] = get_session_override
+    app.dependency_overrides[get_db] = get_db_override
     app.dependency_overrides[get_current_user] = get_current_user_override
 
     yield TestClient(app)
