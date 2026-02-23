@@ -3,7 +3,7 @@ from typing import Annotated, List
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel import select
-from app.api.deps import SessionDep, CurrentUser
+from app.api.deps import SessionDep, CurrentUser, CurrentAdmin
 from app.models.database import User
 from app.services.auth_service import AuthService
 from app.core.security import create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES, get_password_hash
@@ -32,14 +32,14 @@ def login_for_access_token(session: SessionDep, form_data: Annotated[OAuth2Passw
 
 
 @router.get("/users", response_model=List[UserRead])
-def list_users(session: SessionDep, current_user: CurrentUser):
+def list_users(session: SessionDep, current_user: CurrentAdmin):
     """List all panel users"""
     users = session.exec(select(User)).all()
     return users
 
 
 @router.post("/users", response_model=UserRead)
-def create_user(user_data: UserCreate, session: SessionDep, current_user: CurrentUser):
+def create_user(user_data: UserCreate, session: SessionDep, current_user: CurrentAdmin):
     """Create a new panel user"""
     # Check if username already exists
     existing = session.exec(select(User).where(User.username == user_data.username)).first()
@@ -54,6 +54,9 @@ def create_user(user_data: UserCreate, session: SessionDep, current_user: Curren
 @router.get("/users/{user_id}", response_model=UserRead)
 def get_user(user_id: int, session: SessionDep, current_user: CurrentUser):
     """Get a single user by ID"""
+    if current_user.role != "admin" and current_user.id != user_id:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+
     user = session.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -63,9 +66,17 @@ def get_user(user_id: int, session: SessionDep, current_user: CurrentUser):
 @router.put("/users/{user_id}", response_model=UserRead)
 def update_user(user_id: int, user_data: UserUpdate, session: SessionDep, current_user: CurrentUser):
     """Update a panel user"""
+    # Authorization Check
+    if current_user.role != "admin" and current_user.id != user_id:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+
     user = session.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+
+    # Prevent role escalation
+    if current_user.role != "admin" and user_data.role is not None and user_data.role != user.role:
+        raise HTTPException(status_code=403, detail="Cannot change role")
 
     # Check if trying to update username to an existing one
     if user_data.username and user_data.username != user.username:
@@ -87,7 +98,7 @@ def update_user(user_id: int, user_data: UserUpdate, session: SessionDep, curren
 
 
 @router.delete("/users/{user_id}")
-def delete_user(user_id: int, session: SessionDep, current_user: CurrentUser):
+def delete_user(user_id: int, session: SessionDep, current_user: CurrentAdmin):
     """Delete a panel user"""
     user = session.get(User, user_id)
     if not user:

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from typing import List
 from pydantic import BaseModel
-from app.api.deps import CurrentUser
+from app.api.deps import CurrentUser, CurrentAdmin
 from app.services.mysql_manager import MysqlManager
 from app.schemas.mysql import (
     MysqlStatus,
@@ -69,12 +69,12 @@ def delete_database(name: str, current_user: CurrentUser):
 
 
 @router.get("/users")
-def list_users(current_user: CurrentUser):
+def list_users(current_user: CurrentAdmin):
     return MysqlManager.list_users()
 
 
 @router.post("/users")
-def create_user(user: UserCreate, current_user: CurrentUser):
+def create_user(user: UserCreate, current_user: CurrentAdmin):
     success, msg = MysqlManager.create_user(user.name, user.password, user.grant_all)
     if not success:
         raise HTTPException(status_code=500, detail=msg)
@@ -82,7 +82,7 @@ def create_user(user: UserCreate, current_user: CurrentUser):
 
 
 @router.delete("/users/{name}")
-def delete_user(name: str, current_user: CurrentUser):
+def delete_user(name: str, current_user: CurrentAdmin):
     # name is expected to be user@host
     success, msg = MysqlManager.delete_user(name)
     if not success:
@@ -91,7 +91,7 @@ def delete_user(name: str, current_user: CurrentUser):
 
 
 @router.put("/users/{name}/password")
-def change_password(name: str, data: UserUpdate, current_user: CurrentUser):
+def change_password(name: str, data: UserUpdate, current_user: CurrentAdmin):
     # name is expected to be user@host
     success, msg = MysqlManager.change_password(name, data.password)
     if not success:
@@ -100,7 +100,7 @@ def change_password(name: str, data: UserUpdate, current_user: CurrentUser):
 
 
 @router.post("/grant")
-def grant_access(data: GrantAccess, current_user: CurrentUser):
+def grant_access(data: GrantAccess, current_user: CurrentAdmin):
     # data.user is expected to be user@host
     success, msg = MysqlManager.grant_access(data.database, data.user)
     if not success:

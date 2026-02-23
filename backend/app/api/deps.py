@@ -35,3 +35,13 @@ def get_current_user(session: SessionDep, token: Annotated[str, Depends(reusable
     return user
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
+
+def get_current_admin(current_user: CurrentUser) -> User:
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="The user doesn't have enough privileges",
+        )
+    return current_user
+
+CurrentAdmin = Annotated[User, Depends(get_current_admin)]
