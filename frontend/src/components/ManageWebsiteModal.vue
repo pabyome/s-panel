@@ -34,6 +34,11 @@
 
                   <!-- Tab Panels -->
 
+                  <!-- Analytics -->
+                  <div v-if="currentTab === 'Analytics'" class="flex-1 flex flex-col p-4">
+                      <TrafficChart v-if="website" :websiteId="website.id" />
+                  </div>
+
                   <!-- Config Editor -->
                   <div v-if="currentTab === 'Nginx Config'" class="flex-1 flex flex-col">
                       <div class="bg-amber-50 rounded-md p-3 mb-4 text-xs text-amber-700">
@@ -189,6 +194,7 @@ import { Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot } fro
 import { XMarkIcon } from '@heroicons/vue/24/outline'
 import axios from 'axios'
 import ConfirmModal from './ConfirmModal.vue'
+import TrafficChart from './TrafficChart.vue'
 import { useToast } from '../composables/useToast'
 
 const toast = useToast()
@@ -201,12 +207,13 @@ const props = defineProps({
 const emit = defineEmits(['close'])
 
 const tabs = [
+  { name: 'Analytics', href: '#' },
   { name: 'Nginx Config', href: '#' },
   { name: 'Logs', href: '#' },
   { name: 'WAF', href: '#' },
 ]
 
-const currentTab = ref('Nginx Config')
+const currentTab = ref('Analytics')
 const configContent = ref('')
 const logContent = ref('')
 const logType = ref('access')

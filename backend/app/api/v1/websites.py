@@ -11,6 +11,7 @@ from app.models.waf import WafConfig
 from app.models.deployment import DeploymentConfig
 from app.services.website_manager import WebsiteManager
 from app.services.laravel_service import LaravelService
+from app.services.log_parser import LogParser
 
 from app.services.nginx_manager import NginxManager
 
@@ -177,6 +178,21 @@ def get_website_logs(
         return {"content": result.stdout}
     except Exception as e:
         return {"content": f"Failed to read logs: {str(e)}"}
+
+
+@router.get("/{website_id}/analytics")
+def get_website_analytics(
+    website_id: int,
+    session: SessionDep,
+    current_user: CurrentUser,
+):
+    """Get traffic analytics from Nginx logs"""
+    website = session.get(Website, website_id)
+    if not website:
+        raise HTTPException(status_code=404, detail="Website not found")
+
+    log_path = f"/var/log/nginx/{website.domain}.access.log"
+    return LogParser.get_traffic_stats(log_path)
 
 
 @router.post("/", response_model=WebsiteRead)
