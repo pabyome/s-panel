@@ -18,6 +18,7 @@ fi
 echo -e "${GREEN}[1/6] Installing System Dependencies...${NC}"
 apt update
 apt install -y python3 python3-venv git unzip curl gnupg ufw supervisor nginx
+apt install -y certbot python3-certbot-nginx
 
 # Ensure supervisor log directory exists (common failure point)
 mkdir -p /var/log/supervisor
