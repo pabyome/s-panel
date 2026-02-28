@@ -54,7 +54,9 @@ def test_terminal_websocket(mock_service, client):
     except Exception:
         pass
 
-    mock_service.exec_create.assert_called_with("123", "/bin/bash")
+    # Updated expectation for smart shell command
+    expected_cmd = ["/bin/sh", "-c", "if [ -x /bin/bash ]; then exec /bin/bash; else exec /bin/sh; fi"]
+    mock_service.exec_create.assert_called_with("123", expected_cmd)
     mock_service.exec_start.assert_called_with("exec_id_123")
 
     # Verify interactions

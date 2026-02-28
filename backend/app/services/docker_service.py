@@ -188,7 +188,7 @@ class DockerService:
 
     # --- Exec Methods for Terminal ---
 
-    def exec_create(self, container_id: str, cmd: str, user: str = "root", workdir: str = "/") -> str:
+    def exec_create(self, container_id: str, cmd: str | List[str], user: str = "root", workdir: str = "/") -> str:
         self._check_client()
         try:
             exec_instance = self.client.api.exec_create(
